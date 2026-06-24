@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "1008501694911",
+    "project_id": "programmazione-mobile-e2a0c",
+    "storage_bucket": "programmazione-mobile-e2a0c.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1008501694911:android:439c6f98dc6fff2b32010a",
+        "android_client_info": {
+          "package_name": "com.example.fairball"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "1008501694911-4grfprp1gt93nbrajp8mg9hbu5d1gejb.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDZ7OSlEGCe_FWcx7oajnmrhbQu3m58vNY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "1008501694911-4grfprp1gt93nbrajp8mg9hbu5d1gejb.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

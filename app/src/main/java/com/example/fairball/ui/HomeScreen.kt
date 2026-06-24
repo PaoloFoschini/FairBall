@@ -7,10 +7,13 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.Sports
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.example.fairball.model.Match
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FirebaseFirestore
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -18,10 +21,32 @@ fun HomeScreen(
     role: String,
     onViewReferees: () -> Unit,
     onViewProfile: () -> Unit,
-    onViewChampionship: () -> Unit
+    onViewChampionship: () -> Unit,
+    onViewMap: () -> Unit
 ) {
-    // Mock data per le partite assegnate
-    val assignedMatches = listOf("Partita 1: Team A vs Team B", "Partita 2: Team C vs Team D")
+    val db = FirebaseFirestore.getInstance()
+    val auth = FirebaseAuth.getInstance()
+    val currentUser = auth.currentUser
+    
+    var assignedMatches by remember { mutableStateOf<List<Match>>(emptyList()) }
+    var isLoading by remember { mutableStateOf(true) }
+
+    LaunchedEffect(currentUser) {
+        if (currentUser != null) {
+            db.collection("matches")
+                .whereEqualTo("refereeId", currentUser.uid)
+                .get()
+                .addOnSuccessListener { result ->
+                    assignedMatches = result.toObjects(Match::class.java)
+                    isLoading = false
+                }
+                .addOnFailureListener {
+                    isLoading = false
+                }
+        } else {
+            isLoading = false
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -59,16 +84,26 @@ fun HomeScreen(
                 modifier = Modifier.align(Alignment.Start).padding(bottom = 8.dp)
             )
 
-            LazyColumn(
-                modifier = Modifier.weight(1f).fillMaxWidth()
-            ) {
-                items(assignedMatches) { match ->
-                    Card(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 4.dp)
-                    ) {
-                        Text(text = match, modifier = Modifier.padding(16.dp))
+            if (isLoading) {
+                CircularProgressIndicator(modifier = Modifier.padding(16.dp))
+            } else if (assignedMatches.isEmpty()) {
+                Text("Nessuna partita assegnata.", modifier = Modifier.padding(16.dp))
+            } else {
+                LazyColumn(
+                    modifier = Modifier.weight(1f).fillMaxWidth()
+                ) {
+                    items(assignedMatches) { match ->
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 4.dp)
+                        ) {
+                            Column(modifier = Modifier.padding(16.dp)) {
+                                Text(text = "Gara: ${match.code}", style = MaterialTheme.typography.bodyLarge)
+                                Text(text = "Stato: ${match.status}", style = MaterialTheme.typography.bodySmall)
+                                Text(text = "${match.homeTeamId} vs ${match.awayTeamId}")
+                            }
+                        }
                     }
                 }
             }
@@ -80,6 +115,15 @@ fun HomeScreen(
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Text("Vai al Campionato")
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            OutlinedButton(
+                onClick = onViewMap,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("Visualizza Mappa Campi")
             }
         }
     }

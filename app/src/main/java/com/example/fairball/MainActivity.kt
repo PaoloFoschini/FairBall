@@ -10,12 +10,19 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.example.fairball.data.FirebaseDataSeeder
 import com.example.fairball.ui.*
 import com.example.fairball.ui.theme.FairBallTheme
+import com.google.firebase.FirebaseApp
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        FirebaseApp.initializeApp(this)
+        
+        // Popola i dati se necessario (puoi commentarlo dopo il primo avvio)
+        FirebaseDataSeeder.seedData()
+
         enableEdgeToEdge()
         setContent {
             FairBallTheme {
@@ -46,11 +53,15 @@ fun FairBallApp() {
                 role = role,
                 onViewReferees = { navController.navigate("league_referees") },
                 onViewProfile = { navController.navigate("profile") },
-                onViewChampionship = { navController.navigate("championship") }
+                onViewChampionship = { navController.navigate("championship") },
+                onViewMap = { navController.navigate("map") }
             )
         }
         composable("league_referees") {
             LeagueRefereesScreen(onBack = { navController.popBackStack() })
+        }
+        composable("map") {
+            MapScreen(onBack = { navController.popBackStack() })
         }
         composable("profile") {
             ProfileScreen(
