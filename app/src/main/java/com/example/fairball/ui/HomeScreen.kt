@@ -5,6 +5,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountCircle
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Sports
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -19,22 +20,27 @@ import com.google.firebase.firestore.FirebaseFirestore
 @Composable
 fun HomeScreen(
     role: String,
+    debugUid: String? = null,
     onViewReferees: () -> Unit,
     onViewProfile: () -> Unit,
     onViewChampionship: () -> Unit,
-    onViewMap: () -> Unit
+    onViewMap: () -> Unit,
+    onArbitrateMatch: (String) -> Unit
 ) {
     val db = FirebaseFirestore.getInstance()
     val auth = FirebaseAuth.getInstance()
     val currentUser = auth.currentUser
     
+    // Usiamo l'ID di debug se fornito, altrimenti quello dell'utente loggato
+    val effectiveUid = debugUid ?: currentUser?.uid
+
     var assignedMatches by remember { mutableStateOf<List<Match>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
 
-    LaunchedEffect(currentUser) {
-        if (currentUser != null) {
+    LaunchedEffect(effectiveUid) {
+        if (effectiveUid != null) {
             db.collection("matches")
-                .whereEqualTo("refereeId", currentUser.uid)
+                .whereEqualTo("refereeId", effectiveUid)
                 .get()
                 .addOnSuccessListener { result ->
                     assignedMatches = result.toObjects(Match::class.java)
@@ -98,10 +104,27 @@ fun HomeScreen(
                                 .fillMaxWidth()
                                 .padding(vertical = 4.dp)
                         ) {
-                            Column(modifier = Modifier.padding(16.dp)) {
-                                Text(text = "Gara: ${match.code}", style = MaterialTheme.typography.bodyLarge)
-                                Text(text = "Stato: ${match.status}", style = MaterialTheme.typography.bodySmall)
-                                Text(text = "${match.homeTeamId} vs ${match.awayTeamId}")
+                            Row(
+                                modifier = Modifier
+                                    .padding(16.dp)
+                                    .fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(text = "Gara: ${match.code}", style = MaterialTheme.typography.bodyLarge)
+                                    Text(text = "Stato: ${match.status}", style = MaterialTheme.typography.bodySmall)
+                                    Text(text = "${match.homeTeamId} vs ${match.awayTeamId}")
+                                }
+                                
+                                Button(
+                                    onClick = { onArbitrateMatch(match.id) },
+                                    contentPadding = PaddingValues(horizontal = 12.dp)
+                                ) {
+                                    Icon(Icons.Default.PlayArrow, contentDescription = null)
+                                    Spacer(Modifier.width(4.dp))
+                                    Text("VAI")
+                                }
                             }
                         }
                     }

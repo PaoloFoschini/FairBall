@@ -19,7 +19,7 @@ import com.google.firebase.auth.GoogleAuthProvider
 import com.google.firebase.firestore.FirebaseFirestore
 
 @Composable
-fun LoginScreen(onLoginSuccess: (String) -> Unit) {
+fun LoginScreen(onLoginSuccess: (String, String?) -> Unit) {
     val context = LocalContext.current
     val auth = FirebaseAuth.getInstance()
     val db = FirebaseFirestore.getInstance()
@@ -40,7 +40,7 @@ fun LoginScreen(onLoginSuccess: (String) -> Unit) {
                             userRef.get().addOnSuccessListener { document ->
                                 if (document.exists()) {
                                     val role = document.getString("role") ?: "referee"
-                                    onLoginSuccess(role)
+                                    onLoginSuccess(role, null)
                                 } else {
                                     val userData = mapOf(
                                         "email" to firebaseUser.email,
@@ -49,7 +49,7 @@ fun LoginScreen(onLoginSuccess: (String) -> Unit) {
                                         "role" to "referee"
                                     )
                                     userRef.set(userData).addOnSuccessListener {
-                                        onLoginSuccess("referee")
+                                        onLoginSuccess("referee", null)
                                     }
                                 }
                             }
@@ -76,7 +76,6 @@ fun LoginScreen(onLoginSuccess: (String) -> Unit) {
 
         Button(
             onClick = {
-                // NOTA: Il requestIdToken deve corrispondere al Web Client ID della console Firebase
                 val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
                     .requestIdToken("1008501694911-4grfprp1gt93nbrajp8mg9hbu5d1gejb.apps.googleusercontent.com")
                     .requestEmail()
@@ -91,7 +90,16 @@ fun LoginScreen(onLoginSuccess: (String) -> Unit) {
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        TextButton(onClick = { onLoginSuccess("admin") }) {
+        OutlinedButton(
+            onClick = { onLoginSuccess("referee", "mario_rossi_test_id") },
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text("Debug: Entra come Mario Rossi")
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        TextButton(onClick = { onLoginSuccess("admin", null) }) {
             Text("Entra come Admin (Debug)")
         }
     }

@@ -11,19 +11,45 @@ object FirebaseDataSeeder {
 
         // 1. Teams
         val teams = mapOf(
-            "team_vicenza" to mapOf("name" to "Pallavolo Vicenza"),
-            "team_verona" to mapOf("name" to "Volley Verona"),
-            "team_padova" to mapOf("name" to "Padova Volley")
+            "team_vicenza" to mapOf("id" to "team_vicenza", "name" to "Pallavolo Vicenza"),
+            "team_verona" to mapOf("id" to "team_verona", "name" to "Volley Verona"),
+            "team_padova" to mapOf("id" to "team_padova", "name" to "Padova Volley")
         )
 
         teams.forEach { (id, data) ->
             db.collection("teams").document(id).set(data)
                 .addOnSuccessListener { Log.d("FirebaseSeeder", "Team $id caricato!") }
-                .addOnFailureListener { e -> Log.e("FirebaseSeeder", "Errore team $id", e) }
         }
 
-        // 2. Matches
+        // 2. Mario Rossi Referee
+        val marioId = "mario_rossi_test_id"
+        val marioRossi = mapOf(
+            "displayName" to "Mario Rossi",
+            "email" to "mario.rossi@example.com",
+            "role" to "referee"
+        )
+        db.collection("users").document(marioId).set(marioRossi)
+
+        // 3. Matches
+        val matchMario = mapOf(
+            "id" to "match_mario_1",
+            "code" to "FINALE-001",
+            "season" to "2024",
+            "status" to "assegnata",
+            "homeTeamId" to "team_vicenza",
+            "awayTeamId" to "team_padova",
+            "refereeId" to marioId,
+            "homeScore" to 0,
+            "awayScore" to 0,
+            "scheduledAt" to Date(),
+            "updatedAt" to Date()
+        )
+
+        db.collection("matches").document("match_mario_1").set(matchMario)
+            .addOnSuccessListener { Log.d("FirebaseSeeder", "Match Mario caricato!") }
+
         val match1 = mapOf(
+            "id" to "match_1",
             "code" to "F02-2026",
             "season" to "2026",
             "status" to "pending",
@@ -36,22 +62,6 @@ object FirebaseDataSeeder {
             "updatedAt" to Date()
         )
 
-        val match2 = mapOf(
-            "code" to "F02-2026",
-            "season" to "2026",
-            "status" to "pending",
-            "homeTeamId" to "team_verona",
-            "awayTeamId" to "team_padova",
-            "refereeId" to null,
-            "homeScore" to 0,
-            "awayScore" to 0,
-            "scheduledAt" to Date(),
-            "updatedAt" to Date()
-        )
-
         db.collection("matches").document("match_1").set(match1)
-            .addOnSuccessListener { Log.d("FirebaseSeeder", "Match 1 caricato!") }
-        db.collection("matches").document("match_2").set(match2)
-            .addOnSuccessListener { Log.d("FirebaseSeeder", "Match 2 caricato!") }
     }
 }

@@ -1,7 +1,6 @@
 package com.example.fairball.model
 
 import com.google.firebase.Timestamp
-import java.util.*
 
 data class Team(
     val id: String = "",
@@ -20,4 +19,11 @@ data class Match(
     val awayScore: Int = 0,
     val scheduledAt: Timestamp? = null,
     val updatedAt: Timestamp? = null
+)
+
+data class User(
+    val uid: String = "",
+    val displayName: String = "",
+    val email: String = "",
+    val role: String = "referee"
 )

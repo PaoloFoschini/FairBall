@@ -72,4 +72,7 @@ dependencies {
 
     // OSM (OpenStreetMap)
     implementation(libs.osmdroid)
+
+    // Image Loading
+    implementation(libs.coil.compose)
 }
