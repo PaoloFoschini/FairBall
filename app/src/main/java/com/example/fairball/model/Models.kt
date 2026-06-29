@@ -15,15 +15,24 @@ data class Match(
     val homeTeamId: String = "",
     val awayTeamId: String = "",
     val refereeId: String? = null,
+    val coRefereeId: String? = null,
     val homeScore: Int = 0,
     val awayScore: Int = 0,
     val scheduledAt: Timestamp? = null,
-    val updatedAt: Timestamp? = null
+    val assignedAt: Timestamp? = null,
+    val updatedAt: Timestamp? = null,
+    val venueId: String = "",
+    val phase: String = "Regular Season",
+    val category: String = "Misto",
+    val photoDistintaA: String? = null,
+    val photoDistintaB: String? = null,
+    val photoReferto: String? = null
 )
 
 data class User(
     val uid: String = "",
     val displayName: String = "",
     val email: String = "",
-    val role: String = "referee"
+    val role: String = "referee",
+    val photoUrl: String? = null
 )

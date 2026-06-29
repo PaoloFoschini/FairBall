@@ -117,7 +117,7 @@ fun MatchRefereeScreen(
                     )
                 }
 
-                Divider()
+                HorizontalDivider()
 
                 // Timer Section
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -168,10 +168,6 @@ fun MatchRefereeScreen(
                 ) {
                     Text("FINE PARTITA")
                 }
-            }
-        } else {
-            Box(modifier = Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
-                Text("Errore nel caricamento della partita")
             }
         }
     }

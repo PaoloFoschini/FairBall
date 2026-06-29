@@ -36,16 +36,21 @@ fun LoginScreen(onLoginSuccess: (String, String?) -> Unit) {
                     if (authResult.isSuccessful) {
                         val user = auth.currentUser
                         user?.let { firebaseUser ->
+                            // Prima cerchiamo se esiste già un documento con questo UID
                             db.collection("users").document(firebaseUser.uid).get()
                                 .addOnSuccessListener { doc ->
                                     if (doc.exists()) {
                                         onLoginSuccess(doc.getString("role") ?: "referee", null)
                                     } else {
-                                        db.collection("users").whereEqualTo("email", firebaseUser.email).get()
+                                        // Se non esiste l'UID, cerchiamo per Email (magari creato dall'Admin)
+                                        db.collection("users")
+                                            .whereEqualTo("email", firebaseUser.email)
+                                            .get()
                                             .addOnSuccessListener { query ->
                                                 if (!query.isEmpty) {
                                                     val existingDoc = query.documents[0]
                                                     val role = existingDoc.getString("role") ?: "referee"
+                                                    // Aggiorniamo il documento esistente con l'UID reale di Firebase Auth
                                                     val data = existingDoc.data?.toMutableMap() ?: mutableMapOf()
                                                     data["uid"] = firebaseUser.uid
                                                     db.collection("users").document(firebaseUser.uid).set(data)
@@ -54,6 +59,7 @@ fun LoginScreen(onLoginSuccess: (String, String?) -> Unit) {
                                                     }
                                                     onLoginSuccess(role, null)
                                                 } else {
+                                                    // Nuovo utente assoluto
                                                     val userData = mapOf(
                                                         "uid" to firebaseUser.uid,
                                                         "email" to firebaseUser.email,
@@ -78,7 +84,9 @@ fun LoginScreen(onLoginSuccess: (String, String?) -> Unit) {
     }
 
     Column(
-        modifier = Modifier.fillMaxSize().padding(16.dp),
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {

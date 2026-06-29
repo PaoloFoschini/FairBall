@@ -1,20 +1,50 @@
 package com.example.fairball.ui
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.EmojiEvents
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.example.fairball.model.Match
+import com.example.fairball.model.User
+import com.google.firebase.firestore.FirebaseFirestore
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LeagueRefereesScreen(onBack: () -> Unit) {
+    val db = FirebaseFirestore.getInstance()
+    var refereeStats by remember { mutableStateOf<List<RefereeStat>>(emptyList()) }
+    var isLoading by remember { mutableStateOf(true) }
+
+    LaunchedEffect(Unit) {
+        db.collection("users").whereEqualTo("role", "referee").get().addOnSuccessListener { userSnapshot ->
+            val referees = userSnapshot.toObjects(User::class.java)
+            db.collection("matches").whereEqualTo("status", "finished").get().addOnSuccessListener { matchSnapshot ->
+                val finishedMatches = matchSnapshot.toObjects(Match::class.java)
+                refereeStats = referees.map { calculateRefereeStats(it, finishedMatches) }.sortedByDescending { it.matchCount }
+                isLoading = false
+            }
+        }
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Arbitri della Lega") },
+                title = { Text("Classifica Arbitri") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Indietro")
@@ -23,9 +53,53 @@ fun LeagueRefereesScreen(onBack: () -> Unit) {
             )
         }
     ) { padding ->
-        Column(modifier = Modifier.padding(padding).padding(16.dp)) {
-            Text("Elenco di tutti gli arbitri registrati nella lega.")
-            // Qui andrà la lista degli arbitri
+        if (isLoading) {
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator()
+            }
+        } else {
+            LazyColumn(
+                modifier = Modifier.fillMaxSize().padding(padding).padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                item { Text("Hall of Fame", style = MaterialTheme.typography.headlineSmall) }
+                items(refereeStats) { stat -> RefereeStatCard(stat) }
+            }
+        }
+    }
+}
+
+@Composable
+fun RefereeStatCard(stat: RefereeStat) {
+    var expanded by remember { mutableStateOf(false) }
+    val unlockedBadges = stat.badges.filter { it.isUnlocked }
+
+    Card(
+        modifier = Modifier.fillMaxWidth().clickable { expanded = !expanded },
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(modifier = Modifier.size(40.dp).background(MaterialTheme.colorScheme.primaryContainer, CircleShape), contentAlignment = Alignment.Center) {
+                    Text(stat.user.displayName.take(1).uppercase(), fontWeight = FontWeight.Bold)
+                }
+                Spacer(modifier = Modifier.width(12.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(stat.user.displayName, style = MaterialTheme.typography.titleMedium)
+                    Text("${stat.matchCount} partite", style = MaterialTheme.typography.bodySmall)
+                }
+                Row {
+                    unlockedBadges.take(3).forEach { badge ->
+                        Icon(badge.icon, null, tint = badge.color, modifier = Modifier.size(20.dp).padding(horizontal = 2.dp))
+                    }
+                }
+            }
+            AnimatedVisibility(visible = expanded) {
+                Column(modifier = Modifier.padding(top = 16.dp)) {
+                    HorizontalDivider()
+                    stat.badges.forEach { BadgeItem(it) }
+                }
+            }
         }
     }
 }

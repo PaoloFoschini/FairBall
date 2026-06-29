@@ -1,67 +1,66 @@
 package com.example.fairball.data
 
-import android.util.Log
+import com.example.fairball.model.Match
+import com.example.fairball.model.Team
+import com.example.fairball.model.User
+import com.google.firebase.Timestamp
 import com.google.firebase.firestore.FirebaseFirestore
 import java.util.*
 
 object FirebaseDataSeeder {
     fun seedData() {
         val db = FirebaseFirestore.getInstance()
-        Log.d("FirebaseSeeder", "Inizio seeding dati...")
-
+        
         // 1. Teams
-        val teams = mapOf(
-            "team_vicenza" to mapOf("id" to "team_vicenza", "name" to "Pallavolo Vicenza"),
-            "team_verona" to mapOf("id" to "team_verona", "name" to "Volley Verona"),
-            "team_padova" to mapOf("id" to "team_padova", "name" to "Padova Volley")
+        val teams = listOf(
+            Team("team_vicenza", "Pallavolo Vicenza"),
+            Team("team_verona", "Volley Verona"),
+            Team("team_padova", "Padova Volley")
         )
+        teams.forEach { db.collection("teams").document(it.id).set(it) }
 
-        teams.forEach { (id, data) ->
-            db.collection("teams").document(id).set(data)
-                .addOnSuccessListener { Log.d("FirebaseSeeder", "Team $id caricato!") }
-        }
-
-        // 2. Mario Rossi Referee
-        val marioId = "mario_rossi_test_id"
-        val marioRossi = mapOf(
-            "displayName" to "Mario Rossi",
-            "email" to "mario.rossi@example.com",
-            "role" to "referee"
+        // 2. Referees
+        val referees = listOf(
+            User("mario_rossi_test_id", "Mario Rossi", "mario@fairball.com", "referee"),
+            User("luca_bianchi_id", "Luca Bianchi", "luca@fairball.com", "referee"),
+            User("paolo_verdi_id", "Paolo Verdi", "paolo@fairball.com", "referee"),
+            User("admin_test_id", "Admin Pro", "admin@fairball.com", "admin")
         )
-        db.collection("users").document(marioId).set(marioRossi)
+        referees.forEach { db.collection("users").document(it.uid).set(it) }
 
         // 3. Matches
-        val matchMario = mapOf(
-            "id" to "match_mario_1",
-            "code" to "FINALE-001",
-            "season" to "2024",
-            "status" to "assegnata",
-            "homeTeamId" to "team_vicenza",
-            "awayTeamId" to "team_padova",
-            "refereeId" to marioId,
-            "homeScore" to 0,
-            "awayScore" to 0,
-            "scheduledAt" to Date(),
-            "updatedAt" to Date()
+        val now = Date()
+        val historicalMatches = listOf(
+            Match(
+                id = "match_mario_1",
+                code = "FINALE-001",
+                status = "assigned",
+                homeTeamId = "team_vicenza",
+                awayTeamId = "team_padova",
+                refereeId = "mario_rossi_test_id",
+                scheduledAt = Timestamp(now)
+            ),
+            Match(
+                id = "h1",
+                code = "EXT-01",
+                status = "finished",
+                homeTeamId = "team_verona",
+                awayTeamId = "team_padova",
+                refereeId = "luca_bianchi_id",
+                homeScore = 3,
+                awayScore = 1,
+                scheduledAt = Timestamp(Date(now.time - 86400000))
+            ),
+            Match(
+                id = "h2",
+                code = "EXT-02",
+                status = "pending",
+                homeTeamId = "team_verona",
+                awayTeamId = "team_padova",
+                scheduledAt = Timestamp(Date(now.time + 86400000))
+            )
         )
 
-        db.collection("matches").document("match_mario_1").set(matchMario)
-            .addOnSuccessListener { Log.d("FirebaseSeeder", "Match Mario caricato!") }
-
-        val match1 = mapOf(
-            "id" to "match_1",
-            "code" to "F02-2026",
-            "season" to "2026",
-            "status" to "pending",
-            "homeTeamId" to "team_vicenza",
-            "awayTeamId" to "team_verona",
-            "refereeId" to null,
-            "homeScore" to 0,
-            "awayScore" to 0,
-            "scheduledAt" to Date(),
-            "updatedAt" to Date()
-        )
-
-        db.collection("matches").document("match_1").set(match1)
+        historicalMatches.forEach { db.collection("matches").document(it.id).set(it) }
     }
 }
