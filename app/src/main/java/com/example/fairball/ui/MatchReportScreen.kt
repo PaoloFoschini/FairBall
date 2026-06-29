@@ -1,6 +1,5 @@
 package com.example.fairball.ui
 
-import android.net.Uri
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
@@ -21,7 +20,6 @@ import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.example.fairball.model.Match
 import com.example.fairball.model.Team
-import com.example.fairball.model.User
 import com.google.firebase.firestore.FirebaseFirestore
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -32,9 +30,9 @@ fun MatchReportScreen(
 ) {
     val db = FirebaseFirestore.getInstance()
     var match by remember { mutableStateOf<Match?>(null) }
-    var homeTeam by remember { mutableStateOf<Team?>(null) }
-    var awayTeam by remember { mutableStateOf<Team?>(null) }
-    var refereeName by remember { mutableStateOf("Caricamento...") }
+    var homeTeamName by remember { mutableStateOf("") }
+    var awayTeamName by remember { mutableStateOf("") }
+    var refereeName by remember { mutableStateOf("") }
     var isLoading by remember { mutableStateOf(true) }
 
     LaunchedEffect(matchId) {
@@ -42,29 +40,72 @@ fun MatchReportScreen(
             isLoading = false
             return@LaunchedEffect
         }
+
         db.collection("matches").document(matchId).get()
             .addOnSuccessListener { doc ->
                 val m = doc.toObject(Match::class.java)?.copy(id = doc.id)
                 match = m
-                if (m != null) {
-                    db.collection("teams").document(m.homeTeamId).get().addOnSuccessListener { h ->
-                        homeTeam = h.toObject(Team::class.java)
-                    }
-                    db.collection("teams").document(m.awayTeamId).get().addOnSuccessListener { a ->
-                        awayTeam = a.toObject(Team::class.java)
-                    }
-                    m.refereeId?.let { rid ->
-                        db.collection("users").document(rid).get().addOnSuccessListener { u ->
-                            refereeName = u.getString("displayName") ?: "Sconosciuto"
-                            isLoading = false
-                        }
-                    } ?: run { 
-                        refereeName = "Non assegnato"
-                        isLoading = false 
-                    }
-                } else {
+
+                if (m == null) {
                     isLoading = false
+                    return@addOnSuccessListener
                 }
+
+                var pendingRequests = 0
+
+                fun checkDone() {
+                    if (pendingRequests == 0) isLoading = false
+                }
+
+                if (m.homeTeamId.isNotEmpty()) {
+                    pendingRequests++
+                    db.collection("teams").document(m.homeTeamId).get()
+                        .addOnSuccessListener { h ->
+                            homeTeamName = h.toObject(Team::class.java)?.name ?: m.homeTeamId
+                            pendingRequests--
+                            checkDone()
+                        }
+                        .addOnFailureListener {
+                            homeTeamName = m.homeTeamId
+                            pendingRequests--
+                            checkDone()
+                        }
+                }
+
+                if (m.awayTeamId.isNotEmpty()) {
+                    pendingRequests++
+                    db.collection("teams").document(m.awayTeamId).get()
+                        .addOnSuccessListener { a ->
+                            awayTeamName = a.toObject(Team::class.java)?.name ?: m.awayTeamId
+                            pendingRequests--
+                            checkDone()
+                        }
+                        .addOnFailureListener {
+                            awayTeamName = m.awayTeamId
+                            pendingRequests--
+                            checkDone()
+                        }
+                }
+
+                val rid = m.refereeId
+                if (!rid.isNullOrEmpty()) {
+                    pendingRequests++
+                    db.collection("users").document(rid).get()
+                        .addOnSuccessListener { u ->
+                            refereeName = u.getString("displayName") ?: "Sconosciuto"
+                            pendingRequests--
+                            checkDone()
+                        }
+                        .addOnFailureListener {
+                            refereeName = "Sconosciuto"
+                            pendingRequests--
+                            checkDone()
+                        }
+                } else {
+                    refereeName = "Non assegnato"
+                }
+
+                if (pendingRequests == 0) isLoading = false
             }
             .addOnFailureListener { isLoading = false }
     }
@@ -74,57 +115,93 @@ fun MatchReportScreen(
             TopAppBar(
                 title = { Text("Dettaglio Partita") },
                 navigationIcon = {
-                    IconButton(onClick = { onClose() }) {
+                    IconButton(onClick = onClose) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Indietro")
                     }
                 }
             )
         }
     ) { padding ->
-        if (isLoading) {
-            Box(modifier = Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator()
+        when {
+            isLoading -> {
+                Box(
+                    modifier = Modifier.fillMaxSize().padding(padding),
+                    contentAlignment = Alignment.Center
+                ) { CircularProgressIndicator() }
             }
-        } else if (match != null) {
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(padding)
-                    .padding(16.dp)
-                    .verticalScroll(rememberScrollState()),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(20.dp)
-            ) {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+            match == null -> {
+                Box(
+                    modifier = Modifier.fillMaxSize().padding(padding),
+                    contentAlignment = Alignment.Center
+                ) { Text("Dati partita non trovati.") }
+            }
+            else -> {
+                val m = match!!
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(padding)
+                        .padding(16.dp)
+                        .verticalScroll(rememberScrollState()),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(20.dp)
                 ) {
-                    Column(modifier = Modifier.padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text("Risultato Finale", style = MaterialTheme.typography.labelLarge)
-                        Spacer(Modifier.height(8.dp))
-                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.CenterVertically) {
-                            ScoreDisplay(homeTeam?.name ?: match?.homeTeamId ?: "Casa", match?.homeScore ?: 0)
-                            Text("-", fontSize = 32.sp, fontWeight = FontWeight.Bold)
-                            ScoreDisplay(awayTeam?.name ?: match?.awayTeamId ?: "Ospiti", match?.awayScore ?: 0)
+                    // Risultato
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(24.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Text(
+                                "Gara: ${m.code}",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = Color.Gray
+                            )
+                            Spacer(Modifier.height(4.dp))
+                            Text("Risultato Finale", style = MaterialTheme.typography.titleMedium)
+                            Spacer(Modifier.height(16.dp))
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceEvenly,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                ScoreDisplay(
+                                    name = homeTeamName.ifEmpty { m.homeTeamId },
+                                    score = m.homeScore
+                                )
+                                Text("-", fontSize = 32.sp, fontWeight = FontWeight.Bold)
+                                ScoreDisplay(
+                                    name = awayTeamName.ifEmpty { m.awayTeamId },
+                                    score = m.awayScore
+                                )
+                            }
+                            Spacer(Modifier.height(16.dp))
+                            HorizontalDivider()
+                            Spacer(Modifier.height(12.dp))
+                            Text(
+                                "Arbitro: $refereeName",
+                                style = MaterialTheme.typography.bodyMedium
+                            )
                         }
-                        Spacer(Modifier.height(16.dp))
-                        Text("Arbitro: $refereeName", style = MaterialTheme.typography.bodyMedium)
+                    }
+
+                    // Documenti allegati
+                    Text(
+                        "Documentazione Allegata",
+                        style = MaterialTheme.typography.titleMedium,
+                        modifier = Modifier.align(Alignment.Start)
+                    )
+                    ReportImageSection("Distinta Casa", m.photoDistintaA)
+                    ReportImageSection("Distinta Ospiti", m.photoDistintaB)
+                    ReportImageSection("Referto Gara", m.photoReferto)
+
+                    Button(onClick = onClose, modifier = Modifier.fillMaxWidth()) {
+                        Text("CHIUDI")
                     }
                 }
-
-                Text("Documentazione Allegata", style = MaterialTheme.typography.titleMedium, modifier = Modifier.align(Alignment.Start))
-                
-                ReportImageSection("Distinta Casa", match?.photoDistintaA)
-                ReportImageSection("Distinta Ospiti", match?.photoDistintaB)
-                ReportImageSection("Referto Gara", match?.photoReferto)
-
-                Button(onClick = { onClose() }, modifier = Modifier.fillMaxWidth()) {
-                    Text("CHIUDI")
-                }
-            }
-        } else {
-            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text("Dati partita non trovati.")
             }
         }
     }
@@ -134,7 +211,11 @@ fun MatchReportScreen(
 fun ScoreDisplay(name: String, score: Int) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Text(name, style = MaterialTheme.typography.bodyMedium)
-        Text(score.toString(), style = MaterialTheme.typography.displayMedium, fontWeight = FontWeight.ExtraBold)
+        Text(
+            score.toString(),
+            style = MaterialTheme.typography.displayMedium,
+            fontWeight = FontWeight.ExtraBold
+        )
     }
 }
 
@@ -163,7 +244,11 @@ fun ReportImageSection(label: String, uri: String?) {
                     .background(Color.LightGray.copy(alpha = 0.3f)),
                 contentAlignment = Alignment.Center
             ) {
-                Text("Immagine non disponibile", style = MaterialTheme.typography.labelSmall, color = Color.Gray)
+                Text(
+                    "Immagine non disponibile",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = Color.Gray
+                )
             }
         }
         Spacer(modifier = Modifier.height(12.dp))
