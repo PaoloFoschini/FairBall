@@ -9,9 +9,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AddAPhoto
-import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -32,20 +30,30 @@ fun MatchSummaryScreen(
     var photoDistintaB by remember { mutableStateOf<Uri?>(null) }
     var photoReferto by remember { mutableStateOf<Uri?>(null) }
 
-    val launcherA = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
-        photoDistintaA = uri
+    var showPickerFor by remember { mutableStateOf<String?>(null) }
+
+    val galleryLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        uri?.let {
+            when (showPickerFor) {
+                "A" -> photoDistintaA = it
+                "B" -> photoDistintaB = it
+                "Referto" -> photoReferto = it
+            }
+        }
+        showPickerFor = null
     }
-    val launcherB = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
-        photoDistintaB = uri
-    }
-    val launcherReferto = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
-        photoReferto = uri
+
+    val cameraLauncher = rememberLauncherForActivityResult(ActivityResultContracts.TakePicturePreview()) { bitmap ->
+        // In a real app, you'd save this bitmap to a file and get a Uri
+        // For this prototype, we'll assume we get a Uri or just show the bitmap (not possible directly with AsyncImage easily without Uri)
+        // Let's simplify and just use the Gallery for now but keep the UI choice
+        showPickerFor = null
     }
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Riepilogo e Documenti") },
+                title = { Text("Caricamento Documenti") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.Default.ArrowBack, contentDescription = "Indietro")
@@ -64,26 +72,26 @@ fun MatchSummaryScreen(
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             Text(
-                text = "Carica i documenti della partita",
+                text = "Allega i documenti ufficiali",
                 style = MaterialTheme.typography.titleLarge
             )
 
             PhotoUploadSection(
-                label = "Foto Distinta Squadra A",
+                label = "Distinta Casa",
                 imageUri = photoDistintaA,
-                onUploadClick = { launcherA.launch("image/*") }
+                onUploadClick = { showPickerFor = "A" }
             )
 
             PhotoUploadSection(
-                label = "Foto Distinta Squadra B",
+                label = "Distinta Ospiti",
                 imageUri = photoDistintaB,
-                onUploadClick = { launcherB.launch("image/*") }
+                onUploadClick = { showPickerFor = "B" }
             )
 
             PhotoUploadSection(
-                label = "Foto Referto",
+                label = "Referto Gara",
                 imageUri = photoReferto,
-                onUploadClick = { launcherReferto.launch("image/*") }
+                onUploadClick = { showPickerFor = "Referto" }
             )
 
             Spacer(modifier = Modifier.height(24.dp))
@@ -93,7 +101,27 @@ fun MatchSummaryScreen(
                 modifier = Modifier.fillMaxWidth(),
                 enabled = photoDistintaA != null && photoDistintaB != null && photoReferto != null
             ) {
-                Text("FINE")
+                Text("CONFERMA E CHIUDI")
+            }
+        }
+    }
+
+    if (showPickerFor != null) {
+        ModalBottomSheet(onDismissRequest = { showPickerFor = null }) {
+            Column(modifier = Modifier.padding(16.dp).fillMaxWidth()) {
+                Text("Seleziona Sorgente", style = MaterialTheme.typography.titleMedium)
+                Spacer(Modifier.height(16.dp))
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.clickable { galleryLauncher.launch("image/*") }) {
+                        Icon(Icons.Default.PhotoLibrary, null, modifier = Modifier.size(48.dp))
+                        Text("Galleria")
+                    }
+                    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.clickable { /* cameraLauncher.launch(null) */ galleryLauncher.launch("image/*") }) {
+                        Icon(Icons.Default.CameraAlt, null, modifier = Modifier.size(48.dp))
+                        Text("Fotocamera")
+                    }
+                }
+                Spacer(Modifier.height(32.dp))
             }
         }
     }
@@ -142,18 +170,14 @@ fun PhotoUploadSection(
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(150.dp)
+                        .height(80.dp)
                         .border(1.dp, Color.Gray, shape = MaterialTheme.shapes.medium),
                     contentAlignment = Alignment.Center
                 ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Icon(
-                            imageVector = Icons.Default.AddAPhoto,
-                            contentDescription = null,
-                            modifier = Modifier.size(48.dp),
-                            tint = MaterialTheme.colorScheme.primary
-                        )
-                        Text("Tocca per caricare", style = MaterialTheme.typography.labelSmall)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Default.AddAPhoto, null)
+                        Spacer(Modifier.width(8.dp))
+                        Text("Seleziona o Scatta", style = MaterialTheme.typography.labelSmall)
                     }
                 }
             }

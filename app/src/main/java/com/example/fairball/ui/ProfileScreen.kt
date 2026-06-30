@@ -37,24 +37,28 @@ import kotlinx.coroutines.launch
 @Composable
 fun ProfileScreen(
     debugUid: String? = null,
-    onBack: () -> Unit, 
-    onLogout: () -> Unit
+    onBack: () -> Unit,
+    onLogout: () -> Unit,
+    onViewMatchReport: (String) -> Unit = {}
 ) {
     val auth = FirebaseAuth.getInstance()
     val db = FirebaseFirestore.getInstance()
     val currentUser = auth.currentUser
-    val effectiveUid = debugUid ?: currentUser?.uid
+    // myUid è l'uid di chi ha effettuato il login (debug o reale).
+    // NON usiamo currentUser?.uid da solo perché in modalità Debug
+    // FirebaseAuth.currentUser è sempre null.
+    val myUid = Session.uid
+    val effectiveUid = debugUid ?: myUid
+    val isOwnProfile = effectiveUid != null && effectiveUid == myUid
 
     var userProfile by remember { mutableStateOf<User?>(null) }
-    var assignedMatches by remember { mutableStateOf<List<Match>>(emptyList()) }
     var pastMatches by remember { mutableStateOf<List<Match>>(emptyList()) }
     var teamsMap by remember { mutableStateOf<Map<String, String>>(emptyMap()) }
     var refereeStat by remember { mutableStateOf<RefereeStat?>(null) }
     var isLoading by remember { mutableStateOf(true) }
-    
+    var otherAdminCount by remember { mutableIntStateOf(0) }
+
     val listState = rememberLazyListState()
-    val coroutineScope = rememberCoroutineScope()
-    var showMenu by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf(false) }
 
     val photoLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
@@ -70,22 +74,30 @@ fun ProfileScreen(
         if (effectiveUid != null) {
             db.collection("teams").get().addOnSuccessListener { teamSnap ->
                 teamsMap = teamSnap.toObjects(Team::class.java).associate { it.id to it.name }
-                
+
                 db.collection("users").document(effectiveUid).get().addOnSuccessListener { doc ->
                     val user = doc.toObject(User::class.java)
                     userProfile = user
 
+                    // Fetch matches and stats even for own profile if user is a referee
                     db.collection("matches").get().addOnSuccessListener { matchSnapshot ->
                         val allMatches = matchSnapshot.toObjects(Match::class.java)
                         val myMatches = allMatches.filter { it.refereeId == effectiveUid || it.coRefereeId == effectiveUid }
-                        
-                        assignedMatches = myMatches.filter { it.status != "finished" }.sortedBy { it.scheduledAt }
+
                         pastMatches = myMatches.filter { it.status == "finished" }.sortedByDescending { it.scheduledAt }
-                        
+
                         if (user != null) {
                             refereeStat = calculateRefereeStats(user, allMatches)
                         }
-                        isLoading = false
+
+                        if (user?.role == "admin" && isOwnProfile) {
+                            db.collection("users").whereEqualTo("role", "admin").get().addOnSuccessListener { adminSnap ->
+                                otherAdminCount = adminSnap.size() - 1
+                                isLoading = false
+                            }
+                        } else {
+                            isLoading = false
+                        }
                     }.addOnFailureListener { isLoading = false }
                 }.addOnFailureListener { isLoading = false }
             }
@@ -97,50 +109,13 @@ fun ProfileScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Mio Profilo") },
+                title = {
+                    val titleText = if (isOwnProfile) "Mio Profilo" else "Profilo Arbitro"
+                    Text(titleText)
+                },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Indietro")
-                    }
-                },
-                actions = {
-                    Box {
-                        IconButton(onClick = { showMenu = true }) {
-                            Icon(Icons.Default.MoreVert, contentDescription = "Menu")
-                        }
-                        DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
-                            DropdownMenuItem(
-                                text = { Text("Statistiche e Badge") },
-                                onClick = { showMenu = false; coroutineScope.launch { listState.animateScrollToItem(1) } },
-                                leadingIcon = { Icon(Icons.Default.Analytics, null) }
-                            )
-                            DropdownMenuItem(
-                                text = { Text("Prossime Partite") },
-                                onClick = { showMenu = false; coroutineScope.launch { listState.animateScrollToItem(2) } },
-                                leadingIcon = { Icon(Icons.Default.Event, null) }
-                            )
-                            DropdownMenuItem(
-                                text = { Text("Storico Partite") },
-                                onClick = { showMenu = false; coroutineScope.launch { listState.animateScrollToItem(4) } },
-                                leadingIcon = { Icon(Icons.Default.History, null) }
-                            )
-                            HorizontalDivider()
-                            DropdownMenuItem(
-                                text = { Text("Cambia Foto") },
-                                onClick = { showMenu = false; photoLauncher.launch("image/*") },
-                                leadingIcon = { Icon(Icons.Default.PhotoCamera, null) }
-                            )
-                            DropdownMenuItem(
-                                text = { Text("Logout") },
-                                onClick = { showMenu = false; auth.signOut(); onLogout() },
-                                leadingIcon = { Icon(Icons.Default.Logout, null) }
-                            )
-                            DropdownMenuItem(
-                                text = { Text("Elimina Account", color = Color.Red) },
-                                onClick = { showMenu = false; showDeleteDialog = true },
-                                leadingIcon = { Icon(Icons.Default.Delete, null, tint = Color.Red) }
-                            )
-                        }
                     }
                 }
             )
@@ -156,55 +131,102 @@ fun ProfileScreen(
                 modifier = Modifier.fillMaxSize().padding(padding).padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(20.dp)
             ) {
-                item { ProfileHeader(userProfile) { photoLauncher.launch("image/*") } }
-                
                 item {
-                    Text("I Miei Traguardi", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                    RefereeSummaryCard(refereeStat)
+                    ProfileHeader(
+                        user = userProfile,
+                        isOwnProfile = isOwnProfile,
+                        onPhotoClick = { if (isOwnProfile) photoLauncher.launch("image/*") }
+                    )
                 }
 
-                item { Text("Prossimi Impegni", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold) }
-                if (assignedMatches.isEmpty()) {
-                    item { Text("Nessuna partita programmata.", color = Color.Gray, fontSize = 14.sp) }
-                } else {
-                    items(assignedMatches) { MatchProfileCard(it, teamsMap) }
+                if (userProfile?.role != "admin") {
+                    item {
+                        val statTitle = if (isOwnProfile) "Le Mie Statistiche" else "Traguardi e Badge"
+                        Text(statTitle, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                        RefereeSummaryCard(refereeStat)
+                    }
+
+                    item {
+                        val matchTitle = if (isOwnProfile) "Le Mie Gare Dirette" else "Partite Arbitrate"
+                        Text(matchTitle, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    }
+                    if (pastMatches.isEmpty()) {
+                        item { Text("Nessuna partita arbitrata.", color = Color.Gray, fontSize = 14.sp) }
+                    } else {
+                        items(pastMatches) { match ->
+                            MatchProfileCard(match, teamsMap, onViewMatchReport)
+                        }
+                    }
                 }
 
-                item { Text("Gare Dirette in Passato", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold) }
-                if (pastMatches.isEmpty()) {
-                    item { Text("Nessuna partita passata.", color = Color.Gray, fontSize = 14.sp) }
-                } else {
-                    items(pastMatches) { MatchProfileCard(it, teamsMap) }
+                if (isOwnProfile) {
+                    item {
+                        Spacer(modifier = Modifier.height(24.dp))
+                        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                            Button(
+                                onClick = { auth.signOut(); onLogout() },
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary)
+                            ) {
+                                Icon(Icons.Default.Logout, null)
+                                Spacer(Modifier.width(8.dp))
+                                Text("LOGOUT")
+                            }
+                            OutlinedButton(
+                                onClick = { showDeleteDialog = true },
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.Red)
+                            ) {
+                                Icon(Icons.Default.Delete, null)
+                                Spacer(Modifier.width(8.dp))
+                                Text("ELIMINA ACCOUNT")
+                            }
+                        }
+                    }
                 }
-                
+
                 item { Spacer(Modifier.height(40.dp)) }
             }
         }
     }
 
     if (showDeleteDialog) {
+        val canDelete = userProfile?.role != "admin" || otherAdminCount > 0
         AlertDialog(
             onDismissRequest = { showDeleteDialog = false },
             title = { Text("Elimina Account") },
-            text = { Text("Sei sicuro di voler eliminare definitivamente il tuo profilo? Perderai tutti i badge e lo storico partite.") },
-            confirmButton = {
-                TextButton(onClick = {
-                    effectiveUid?.let { uid ->
-                        db.collection("users").document(uid).delete().addOnSuccessListener {
-                            currentUser?.delete()?.addOnCompleteListener { onLogout() } ?: onLogout()
-                        }
-                    }
-                }) { Text("ELIMINA", color = Color.Red) }
+            text = {
+                if (canDelete) {
+                    Text("Sei sicuro di voler eliminare definitivamente il tuo profilo? Questa azione è irreversibile.")
+                } else {
+                    Text("Non puoi eliminare il tuo account perché sei l'unico Admin. Nomina un altro Admin prima di procedere.")
+                }
             },
-            dismissButton = { TextButton(onClick = { showDeleteDialog = false }) { Text("ANNULLA") } }
+            confirmButton = {
+                if (canDelete) {
+                    TextButton(onClick = {
+                        effectiveUid?.let { uid ->
+                            db.collection("users").document(uid).delete().addOnSuccessListener {
+                                currentUser?.delete()?.addOnCompleteListener { onLogout() } ?: onLogout()
+                            }
+                        }
+                    }) { Text("ELIMINA", color = Color.Red) }
+                }
+            },
+            dismissButton = { TextButton(onClick = { showDeleteDialog = false }) { Text(if (canDelete) "ANNULLA" else "OK") } }
         )
     }
 }
 
 @Composable
-fun ProfileHeader(user: User?, onPhotoClick: () -> Unit) {
+fun ProfileHeader(user: User?, isOwnProfile: Boolean, onPhotoClick: () -> Unit) {
     Column(modifier = Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
-        Box(modifier = Modifier.size(120.dp).clickable { onPhotoClick() }, contentAlignment = Alignment.BottomEnd) {
+        Box(
+            modifier = Modifier
+                .size(120.dp)
+                .then(if (isOwnProfile) Modifier.clickable { onPhotoClick() } else Modifier),
+            contentAlignment = Alignment.BottomEnd
+        ) {
             if (user?.photoUrl != null) {
                 AsyncImage(
                     model = user.photoUrl,
@@ -217,11 +239,16 @@ fun ProfileHeader(user: User?, onPhotoClick: () -> Unit) {
                     Icon(Icons.Default.Person, null, modifier = Modifier.size(60.dp))
                 }
             }
-            Icon(Icons.Default.CameraAlt, null, modifier = Modifier.size(32.dp).background(MaterialTheme.colorScheme.primary, CircleShape).padding(6.dp), tint = Color.White)
+            if (isOwnProfile) {
+                Icon(Icons.Default.CameraAlt, null, modifier = Modifier.size(32.dp).background(MaterialTheme.colorScheme.primary, CircleShape).padding(6.dp), tint = Color.White)
+            }
         }
         Spacer(modifier = Modifier.height(12.dp))
-        Text(user?.displayName ?: "Arbitro", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+        Text(user?.displayName ?: "Utente", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
         Text(user?.email ?: "", style = MaterialTheme.typography.bodyMedium, color = Color.Gray)
+        if (user?.role == "admin") {
+            AssistChip(onClick = {}, label = { Text("ADMIN") }, leadingIcon = { Icon(Icons.Default.Security, null, Modifier.size(18.dp)) })
+        }
     }
 }
 
@@ -254,20 +281,25 @@ fun RefereeSummaryCard(stat: RefereeStat?) {
 }
 
 @Composable
-fun MatchProfileCard(match: Match, teams: Map<String, String>) {
-    Card(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp), elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)) {
-        Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text("Gara: ${match.code}", style = MaterialTheme.typography.labelSmall, color = Color.Gray)
-                Text("${teams[match.homeTeamId] ?: match.homeTeamId} vs ${teams[match.awayTeamId] ?: match.awayTeamId}", fontWeight = FontWeight.Bold)
-                Text(match.phase, style = MaterialTheme.typography.bodySmall)
+fun MatchProfileCard(match: Match, teams: Map<String, String>, onClick: (String) -> Unit) {
+    Card(
+        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp).clickable { onClick(match.id) },
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("Gara: ${match.code}", style = MaterialTheme.typography.labelSmall, color = Color.Gray)
+                    Text("${teams[match.homeTeamId] ?: match.homeTeamId} vs ${teams[match.awayTeamId] ?: match.awayTeamId}", fontWeight = FontWeight.Bold)
+                    Text(match.phase, style = MaterialTheme.typography.bodySmall)
+                }
+                if (match.status == "finished") {
+                    Text("${match.homeScore} - ${match.awayScore}", fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.primary, fontSize = 20.sp)
+                }
             }
             if (match.status == "finished") {
-                Text("${match.homeScore} - ${match.awayScore}", fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.primary)
-            } else {
-                Surface(color = MaterialTheme.colorScheme.primaryContainer, shape = CircleShape) {
-                    Text("IN ARRIVO", modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp), style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
-                }
+                Spacer(Modifier.height(8.dp))
+                Text("Vedi referto completo", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
             }
         }
     }

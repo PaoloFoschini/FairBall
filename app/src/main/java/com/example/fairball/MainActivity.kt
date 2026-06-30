@@ -37,6 +37,11 @@ fun FairBallApp() {
     NavHost(navController = navController, startDestination = "login") {
         composable("login") {
             LoginScreen(onLoginSuccess = { role, uid ->
+                // Salviamo l'uid "reale" dell'utente loggato (debug o Firebase Auth).
+                // Necessario perché in modalità Debug FirebaseAuth.currentUser è null.
+                Session.uid = uid ?: com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.uid
+                Session.role = role
+
                 val destination = if (uid != null) "home/$role?uid=$uid" else "home/$role"
                 navController.navigate(destination) {
                     popUpTo("login") { inclusive = true }
@@ -61,12 +66,8 @@ fun FairBallApp() {
                 debugUid = uid,
                 onViewReferees = { navController.navigate("league_referees") },
                 onViewProfile = {
-                    if (role == "admin") {
-                        navController.navigate("admin")
-                    } else {
-                        val dest = if (uid != null) "profile?uid=$uid" else "profile"
-                        navController.navigate(dest)
-                    }
+                    val dest = if (uid != null) "profile?uid=$uid" else "profile"
+                    navController.navigate(dest)
                 },
                 onViewChampionship = { navController.navigate("championship") },
                 onViewMap = { navController.navigate("map") },
@@ -77,7 +78,12 @@ fun FairBallApp() {
             AdminScreen(onBack = { navController.popBackStack() })
         }
         composable("league_referees") {
-            LeagueRefereesScreen(onBack = { navController.popBackStack() })
+            LeagueRefereesScreen(
+                onBack = { navController.popBackStack() },
+                onRefereeClick = { refereeId ->
+                    navController.navigate("profile?uid=$refereeId")
+                }
+            )
         }
         composable("map") {
             MapScreen(onBack = { navController.popBackStack() })
@@ -96,9 +102,13 @@ fun FairBallApp() {
                 debugUid = backStackEntry.arguments?.getString("uid"),
                 onBack = { navController.popBackStack() },
                 onLogout = {
+                    Session.clear()
                     navController.navigate("login") {
                         popUpTo(0) { inclusive = true }
                     }
+                },
+                onViewMatchReport = { matchId ->
+                    navController.navigate("match_report/$matchId")
                 }
             )
         }
@@ -129,8 +139,8 @@ fun FairBallApp() {
             MatchSummaryScreen(
                 matchId = matchId,
                 onFinish = {
-                    navController.navigate("match_report/$matchId") {
-                        popUpTo("match_referee/$matchId") { inclusive = true }
+                    navController.navigate("championship") {
+                        popUpTo("home/referee") { inclusive = false } // Torna alla home o classifica
                     }
                 },
                 onBack = { navController.popBackStack() }
@@ -144,9 +154,7 @@ fun FairBallApp() {
             MatchReportScreen(
                 matchId = matchId,
                 onClose = {
-                    navController.navigate("championship") {
-                        popUpTo("championship") { inclusive = true }
-                    }
+                    navController.popBackStack()
                 }
             )
         }
