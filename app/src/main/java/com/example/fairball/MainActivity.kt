@@ -37,6 +37,9 @@ fun FairBallApp() {
     NavHost(navController = navController, startDestination = "login") {
         composable("login") {
             LoginScreen(onLoginSuccess = { role, uid ->
+                Session.uid = uid
+                Session.role = role
+
                 val destination = if (uid != null) "home/$role?uid=$uid" else "home/$role"
                 navController.navigate(destination) {
                     popUpTo("login") { inclusive = true }
@@ -47,75 +50,58 @@ fun FairBallApp() {
             route = "home/{role}?uid={uid}",
             arguments = listOf(
                 navArgument("role") { type = NavType.StringType },
-                navArgument("uid") {
-                    type = NavType.StringType
-                    nullable = true
-                    defaultValue = null
-                }
+                navArgument("uid") { type = NavType.StringType; nullable = true; defaultValue = null }
             )
         ) { backStackEntry ->
-            val role = backStackEntry.arguments?.getString("role") ?: "User"
+            val role = backStackEntry.arguments?.getString("role") ?: "referee"
             val uid = backStackEntry.arguments?.getString("uid")
+
+            // CORREZIONE: Facciamo caricare la HomeScreen anche all'admin.
+            // All'interno di HomeScreen (usando la variabile role) l'interfaccia mostrerà
+            // i tasti dell'admin o la lista delle partite da approvare, mantenendo la TopBar con l'icona del profilo.
             HomeScreen(
                 role = role,
                 debugUid = uid,
                 onViewReferees = { navController.navigate("league_referees") },
-                onViewProfile = {
-                    val dest = if (uid != null) "profile?uid=$uid" else "profile"
-                    navController.navigate(dest)
-                },
-                onViewRefereeProfile = { refereeId ->
-                    navController.navigate("profile?uid=$refereeId")
-                },
+                onViewProfile = { navController.navigate("profile") },
+                onViewRefereeProfile = { refereeId -> navController.navigate("profile?uid=$refereeId") },
                 onViewChampionship = { navController.navigate("championship") },
                 onViewMap = { navController.navigate("map") },
                 onArbitrateMatch = { matchId -> navController.navigate("match_referee/$matchId") }
             )
         }
-        composable("admin") {
-            AdminScreen(onBack = { navController.popBackStack() })
-        }
         composable("league_referees") {
             LeagueRefereesScreen(
                 onBack = { navController.popBackStack() },
-                onRefereeClick = { refereeId ->
-                    navController.navigate("profile?uid=$refereeId")
-                }
+                onRefereeClick = { refereeId -> navController.navigate("profile?uid=$refereeId") }
             )
-        }
-        composable("map") {
-            MapScreen(onBack = { navController.popBackStack() })
         }
         composable(
             route = "profile?uid={uid}",
             arguments = listOf(
-                navArgument("uid") {
-                    type = NavType.StringType
-                    nullable = true
-                    defaultValue = null
-                }
+                navArgument("uid") { type = NavType.StringType; nullable = true; defaultValue = null }
             )
         ) { backStackEntry ->
+            val uid = backStackEntry.arguments?.getString("uid")
             ProfileScreen(
-                debugUid = backStackEntry.arguments?.getString("uid"),
+                refereeId = uid,
                 onBack = { navController.popBackStack() },
-                onLogout = {
+                onViewMatchReport = { matchId -> navController.navigate("match_report/$matchId") },
+                onLogoutSuccess = {
                     navController.navigate("login") {
-                        popUpTo(0) { inclusive = true }
+                        popUpTo("login") { inclusive = true }
                     }
-                },
-                onViewMatchReport = { matchId ->
-                    navController.navigate("match_report/$matchId")
                 }
             )
         }
         composable("championship") {
             ChampionshipScreen(
                 onBack = { navController.popBackStack() },
-                onViewReport = { matchId ->
-                    navController.navigate("match_report/$matchId")
-                }
+                onViewReport = { matchId -> navController.navigate("match_report/$matchId") }
             )
+        }
+        composable("map") {
+            MapScreen(onBack = { navController.popBackStack() })
         }
         composable(
             route = "match_referee/{matchId}",
@@ -136,7 +122,6 @@ fun FairBallApp() {
             MatchSummaryScreen(
                 matchId = matchId,
                 onFinish = {
-                    // Torna alla home dopo l'invio per approvazione
                     navController.popBackStack("home/{role}?uid={uid}", inclusive = false)
                 },
                 onBack = { navController.popBackStack() }
@@ -153,6 +138,11 @@ fun FairBallApp() {
                     navController.popBackStack()
                 }
             )
+        }
+
+        // Mantieni la rotta se in altre parti del codice viene espressamente usata l'AdminScreen autonoma
+        composable("admin_screen") {
+            AdminScreen(onBack = { navController.popBackStack() })
         }
     }
 }

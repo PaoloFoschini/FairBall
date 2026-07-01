@@ -3,152 +3,131 @@ package com.example.fairball.data
 import com.example.fairball.model.Match
 import com.example.fairball.model.Team
 import com.example.fairball.model.User
-import com.google.firebase.Timestamp
+import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
-import java.util.*
 
 object FirebaseDataSeeder {
-    private var seeded = false
-
     fun seedData() {
-        if (seeded) return
-        seeded = true
-
         val db = FirebaseFirestore.getInstance()
+        val auth = FirebaseAuth.getInstance()
 
-        // 1. Teams
-        val teams = listOf(
-            Team("team_vicenza", "Pallavolo Vicenza"),
-            Team("team_verona", "Volley Verona"),
-            Team("team_padova", "Padova Volley"),
-            Team("team_treviso", "Treviso Volley"),
-            Team("team_venezia", "Venezia Volley")
-        )
-        teams.forEach { db.collection("teams").document(it.id).set(it) }
+        // Recuperiamo l'UID dell'utente attualmente loggato in Firebase (se presente)
+        val currentUid = auth.currentUser?.uid
 
-        // 2. Users
+        // 1. SEED UTENTI
+        // Se l'utente corrente è l'admin loggato con Google, usiamo il suo UID reale,
+        // altrimenti usiamo l'ID di fallback "admin_test_id"
+        val adminUid = if (currentUid != null && currentUid != "mario_rossi_test_id" && currentUid != "luigi_verdi_test_id") {
+            currentUid
+        } else {
+            "admin_test_id"
+        }
+
         val users = listOf(
-            User("mario_rossi_test_id", "Mario Rossi", "mario@fairball.com", "referee"),
-            User("luca_bianchi_id", "Luca Bianchi", "luca@fairball.com", "referee"),
-            User("paolo_verdi_id", "Paolo Verdi", "paolo@fairball.com", "referee"),
-            User("sara_neri_id", "Sara Neri", "sara@fairball.com", "referee"),
-            User("admin_test_id", "Admin Pro", "admin@fairball.com", "admin")
-        )
-        users.forEach { db.collection("users").document(it.uid).set(it) }
-
-        val now = Date()
-        fun daysFromNow(days: Int) = Timestamp(Date(now.time + days * 86400000L))
-
-        // 3. Matches
-        val matches = listOf(
-            // Future - assegnate
-            Match(
-                id = "match_f1",
-                code = "RS-001",
-                status = "assigned",
-                homeTeamId = "team_vicenza",
-                awayTeamId = "team_verona",
-                refereeId = "mario_rossi_test_id",
-                phase = "Regular Season",
-                category = "Maschile",
-                scheduledAt = daysFromNow(2)
+            User(
+                uid = "mario_rossi_test_id",
+                displayName = "Mario Rossi",
+                email = "mario.rossi@fairball.com",
+                role = "referee",
+                photoUrl = ""
             ),
-            Match(
-                id = "match_f2",
-                code = "RS-002",
-                status = "assigned",
-                homeTeamId = "team_padova",
-                awayTeamId = "team_treviso",
-                refereeId = "luca_bianchi_id",
-                phase = "Regular Season",
-                category = "Femminile",
-                scheduledAt = daysFromNow(4)
+            User(
+                uid = "luigi_verdi_test_id",
+                displayName = "Luigi Verdi",
+                email = "luigi.verdi@fairball.com",
+                role = "referee",
+                photoUrl = ""
             ),
-            // Future - non assegnate
-            Match(
-                id = "match_f3",
-                code = "RS-003",
-                status = "pending",
-                homeTeamId = "team_venezia",
-                awayTeamId = "team_vicenza",
-                phase = "Regular Season",
-                category = "Misto",
-                scheduledAt = daysFromNow(6)
-            ),
-            Match(
-                id = "match_f4",
-                code = "RS-004",
-                status = "pending",
-                homeTeamId = "team_verona",
-                awayTeamId = "team_venezia",
-                phase = "Regular Season",
-                category = "Maschile",
-                scheduledAt = daysFromNow(10)
-            ),
-            Match(
-                id = "match_f5",
-                code = "SF-001",
-                status = "pending",
-                homeTeamId = "team_treviso",
-                awayTeamId = "team_padova",
-                phase = "Semifinale",
-                category = "Femminile",
-                scheduledAt = daysFromNow(15)
-            ),
-            // Passate - finite
-            Match(
-                id = "match_p1",
-                code = "RS-000",
-                status = "finished",
-                homeTeamId = "team_vicenza",
-                awayTeamId = "team_treviso",
-                refereeId = "mario_rossi_test_id",
-                homeScore = 3,
-                awayScore = 1,
-                phase = "Regular Season",
-                category = "Maschile",
-                scheduledAt = daysFromNow(-7)
-            ),
-            Match(
-                id = "match_p2",
-                code = "RS-00B",
-                status = "finished",
-                homeTeamId = "team_verona",
-                awayTeamId = "team_padova",
-                refereeId = "luca_bianchi_id",
-                homeScore = 0,
-                awayScore = 3,
-                phase = "Regular Season",
-                category = "Femminile",
-                scheduledAt = daysFromNow(-5)
-            ),
-            Match(
-                id = "match_p3",
-                code = "RS-00C",
-                status = "finished",
-                homeTeamId = "team_venezia",
-                awayTeamId = "team_verona",
-                refereeId = "paolo_verdi_id",
-                homeScore = 2,
-                awayScore = 3,
-                phase = "Regular Season",
-                category = "Misto",
-                scheduledAt = daysFromNow(-3)
-            ),
-            Match(
-                id = "match_p4",
-                code = "RS-00D",
-                status = "finished",
-                homeTeamId = "team_treviso",
-                awayTeamId = "team_venezia",
-                refereeId = "sara_neri_id",
-                homeScore = 3,
-                awayScore = 2,
-                phase = "Regular Season",
-                category = "Maschile",
-                scheduledAt = daysFromNow(-1)
+            User(
+                uid = adminUid,
+                displayName = "Admin FairBall",
+                email = auth.currentUser?.email ?: "admin@fairball.com",
+                role = "admin",
+                photoUrl = ""
             )
         )
-        matches.forEach { db.collection("matches").document(it.id).set(it) }
+
+        for (user in users) {
+            db.collection("users").document(user.uid).set(user)
+        }
+
+        // 2. SEED SQUADRE
+        val teams = listOf(
+            Team(id = "team_a", name = "F.C. Raptors"),
+            Team(id = "team_b", name = "Gengis Warriors"),
+            Team(id = "team_c", name = "Real Bologna"),
+            Team(id = "team_d", name = "Milan Stars"),
+            Team(id = "team_e", name = "Virtus Roma"),
+            Team(id = "team_f", name = "Athena Women")
+        )
+
+        for (team in teams) {
+            db.collection("teams").document(team.id).set(team)
+        }
+
+        // 3. SEED PARTITE (Senza il parametro timestamp per non generare errori nel modello Match)
+        val matches = listOf(
+            // Partite FINISHED (Approvate -> Caricano lo storico ed i badge di Mario Rossi)
+            Match(
+                id = "match_finished_1",
+                code = "101",
+                homeTeamId = "team_a",
+                awayTeamId = "team_b",
+                phase = "Girone A - Giornata 1",
+                status = "finished",
+                refereeId = "mario_rossi_test_id",
+                coRefereeId = "luigi_verdi_test_id",
+                homeScore = 3,
+                awayScore = 1
+            ),
+            Match(
+                id = "match_finished_2",
+                code = "102",
+                homeTeamId = "team_c",
+                awayTeamId = "team_d",
+                phase = "Girone A - Giornata 2",
+                status = "finished",
+                refereeId = "mario_rossi_test_id",
+                coRefereeId = "",
+                homeScore = 2,
+                awayScore = 2
+            ),
+            Match(
+                id = "match_finished_3",
+                code = "103",
+                homeTeamId = "team_e",
+                awayTeamId = "team_f",
+                phase = "Girone B - Giornata 1",
+                status = "finished",
+                refereeId = "mario_rossi_test_id",
+                coRefereeId = "luigi_verdi_test_id",
+                homeScore = 0,
+                awayScore = 4
+            ),
+            // Partite ASSIGNED (Visualizzate nella Home dell'arbitro)
+            Match(
+                id = "match_assigned_1",
+                code = "201",
+                homeTeamId = "team_b",
+                awayTeamId = "team_c",
+                phase = "Girone A - Giornata 3",
+                status = "assigned",
+                refereeId = "mario_rossi_test_id",
+                coRefereeId = ""
+            ),
+            // Partite UNASSIGNED (Disponibili per l'Admin nella sezione da approvare)
+            Match(
+                id = "match_unassigned_1",
+                code = "301",
+                homeTeamId = "team_d",
+                awayTeamId = "team_a",
+                phase = "Girone A - Giornata 4",
+                status = "unassigned"
+            )
+        )
+
+        for (match in matches) {
+            db.collection("matches").document(match.id).set(match)
+        }
     }
 }
