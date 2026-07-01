@@ -7,6 +7,13 @@ data class Team(
     val name: String = ""
 )
 
+/**
+ * Statuses:
+ * - "pending": Match created, no referee assigned.
+ * - "assigned": Referee assigned, match ready to be played.
+ * - "waiting_approval": Match played, documents uploaded, waiting for Admin approval.
+ * - "finished": Match approved by Admin, results public.
+ */
 data class Match(
     val id: String = "",
     val code: String = "",
@@ -16,6 +23,7 @@ data class Match(
     val awayTeamId: String = "",
     val refereeId: String? = null,
     val coRefereeId: String? = null,
+    val refereeApplications: List<String> = emptyList(), // List of referee UIDs who applied
     val homeScore: Int = 0,
     val awayScore: Int = 0,
     val scheduledAt: Timestamp? = null,

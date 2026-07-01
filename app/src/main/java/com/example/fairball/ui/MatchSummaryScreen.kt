@@ -18,6 +18,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
+import com.google.firebase.firestore.FirebaseFirestore
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -26,9 +27,11 @@ fun MatchSummaryScreen(
     onFinish: () -> Unit,
     onBack: () -> Unit
 ) {
+    val db = FirebaseFirestore.getInstance()
     var photoDistintaA by remember { mutableStateOf<Uri?>(null) }
     var photoDistintaB by remember { mutableStateOf<Uri?>(null) }
     var photoReferto by remember { mutableStateOf<Uri?>(null) }
+    var isSubmitting by remember { mutableStateOf(false) }
 
     var showPickerFor by remember { mutableStateOf<String?>(null) }
 
@@ -40,13 +43,6 @@ fun MatchSummaryScreen(
                 "Referto" -> photoReferto = it
             }
         }
-        showPickerFor = null
-    }
-
-    val cameraLauncher = rememberLauncherForActivityResult(ActivityResultContracts.TakePicturePreview()) { bitmap ->
-        // In a real app, you'd save this bitmap to a file and get a Uri
-        // For this prototype, we'll assume we get a Uri or just show the bitmap (not possible directly with AsyncImage easily without Uri)
-        // Let's simplify and just use the Gallery for now but keep the UI choice
         showPickerFor = null
     }
 
@@ -76,6 +72,12 @@ fun MatchSummaryScreen(
                 style = MaterialTheme.typography.titleLarge
             )
 
+            Text(
+                "Le immagini verranno inviate all'amministratore per la verifica finale.",
+                style = MaterialTheme.typography.bodySmall,
+                color = Color.Gray
+            )
+
             PhotoUploadSection(
                 label = "Distinta Casa",
                 imageUri = photoDistintaA,
@@ -96,12 +98,29 @@ fun MatchSummaryScreen(
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            Button(
-                onClick = onFinish,
-                modifier = Modifier.fillMaxWidth(),
-                enabled = photoDistintaA != null && photoDistintaB != null && photoReferto != null
-            ) {
-                Text("CONFERMA E CHIUDI")
+            if (isSubmitting) {
+                CircularProgressIndicator()
+            } else {
+                Button(
+                    onClick = {
+                        isSubmitting = true
+                        // Aggiorna lo stato del match in "waiting_approval" e salva i link (qui simulati con URI locali)
+                        db.collection("matches").document(matchId).update(mapOf(
+                            "status" to "waiting_approval",
+                            "photoDistintaA" to photoDistintaA.toString(),
+                            "photoDistintaB" to photoDistintaB.toString(),
+                            "photoReferto" to photoReferto.toString()
+                        )).addOnSuccessListener {
+                            onFinish()
+                        }.addOnFailureListener {
+                            isSubmitting = false
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = photoDistintaA != null && photoDistintaB != null && photoReferto != null
+                ) {
+                    Text("INVIA PER APPROVAZIONE")
+                }
             }
         }
     }

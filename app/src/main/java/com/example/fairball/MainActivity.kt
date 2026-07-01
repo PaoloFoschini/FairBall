@@ -37,11 +37,6 @@ fun FairBallApp() {
     NavHost(navController = navController, startDestination = "login") {
         composable("login") {
             LoginScreen(onLoginSuccess = { role, uid ->
-                // Salviamo l'uid "reale" dell'utente loggato (debug o Firebase Auth).
-                // Necessario perché in modalità Debug FirebaseAuth.currentUser è null.
-                Session.uid = uid ?: com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.uid
-                Session.role = role
-
                 val destination = if (uid != null) "home/$role?uid=$uid" else "home/$role"
                 navController.navigate(destination) {
                     popUpTo("login") { inclusive = true }
@@ -105,7 +100,6 @@ fun FairBallApp() {
                 debugUid = backStackEntry.arguments?.getString("uid"),
                 onBack = { navController.popBackStack() },
                 onLogout = {
-                    Session.clear()
                     navController.navigate("login") {
                         popUpTo(0) { inclusive = true }
                     }
@@ -142,9 +136,8 @@ fun FairBallApp() {
             MatchSummaryScreen(
                 matchId = matchId,
                 onFinish = {
-                    navController.navigate("championship") {
-                        popUpTo("home/referee") { inclusive = false } // Torna alla home o classifica
-                    }
+                    // Torna alla home dopo l'invio per approvazione
+                    navController.popBackStack("home/{role}?uid={uid}", inclusive = false)
                 },
                 onBack = { navController.popBackStack() }
             )
