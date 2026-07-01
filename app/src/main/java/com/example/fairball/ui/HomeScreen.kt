@@ -25,6 +25,7 @@ import coil.compose.AsyncImage
 import com.example.fairball.model.Match
 import com.example.fairball.model.Team
 import com.example.fairball.model.User
+import com.example.fairball.model.Venue
 import com.google.firebase.Timestamp
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FieldValue
@@ -140,6 +141,7 @@ fun HomeScreen(
     var allReferees by remember { mutableStateOf<List<User>>(emptyList()) }
     var teamsMap by remember { mutableStateOf<Map<String, String>>(emptyMap()) }
     var teamsList by remember { mutableStateOf<List<Team>>(emptyList()) }
+    var venuesList by remember { mutableStateOf<List<Venue>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
 
     LaunchedEffect(effectiveUid) {
@@ -152,6 +154,12 @@ fun HomeScreen(
             if (teamSnap != null) {
                 teamsList = teamSnap.toObjects(Team::class.java)
                 teamsMap = teamsList.associate { it.id to it.name }
+            }
+        }
+
+        db.collection("venues").addSnapshotListener { venueSnap, _ ->
+            if (venueSnap != null) {
+                venuesList = venueSnap.toObjects(Venue::class.java)
             }
         }
 
@@ -204,7 +212,7 @@ fun HomeScreen(
                 Box(modifier = Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
             } else {
                 if (role == "admin") {
-                    AdminHomeContent(allMatches, allReferees, teamsList, onViewRefereeProfile)
+                    AdminHomeContent(allMatches, allReferees, teamsList, venuesList, onViewRefereeProfile)
                 } else {
                     RefereeHomeContent(effectiveUid, myMatches, availableMatches, teamsMap, db, onViewMap, onArbitrateMatch, allMatches)
                 }
@@ -221,6 +229,7 @@ fun ColumnScope.AdminHomeContent(
     allMatches: List<Match>,
     allReferees: List<User>,
     teamsList: List<Team>,
+    venuesList: List<Venue>,
     onViewRefereeProfile: (String) -> Unit
 ) {
     var selectedTab by remember { mutableIntStateOf(0) }
@@ -259,14 +268,14 @@ fun ColumnScope.AdminHomeContent(
         1 -> {
             Box(modifier = Modifier.weight(1f)) {
                 LazyColumn(modifier = Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    items(allMatches.sortedByDescending { it.scheduledAt }) { HomeMatchAdminCard(it, allReferees, teamsList) }
+                    items(allMatches.sortedByDescending { it.scheduledAt }) { HomeMatchAdminCard(it, allReferees, teamsList, venuesList) }
                     item { Spacer(Modifier.height(80.dp)) }
                 }
                 val db = FirebaseFirestore.getInstance()
                 var showAddDialog by remember { mutableStateOf(false) }
                 FloatingActionButton(onClick = { showAddDialog = true }, modifier = Modifier.align(Alignment.BottomEnd).padding(bottom = 8.dp)) { Icon(Icons.Default.Add, null) }
                 if (showAddDialog) {
-                    MatchEditDialog(teams = teamsList, onDismiss = { showAddDialog = false }, onSave = { newMatch ->
+                    MatchEditDialog(teams = teamsList, venues = venuesList, onDismiss = { showAddDialog = false }, onSave = { newMatch ->
                         db.collection("matches").document().set(newMatch.copy(id = java.util.UUID.randomUUID().toString()))
                         showAddDialog = false
                     })
@@ -394,7 +403,7 @@ fun MatchApprovalCard(match: Match, referees: List<User>, teams: List<Team>) {
 }
 
 @Composable
-fun HomeMatchAdminCard(match: Match, referees: List<User>, teams: List<Team>) {
+fun HomeMatchAdminCard(match: Match, referees: List<User>, teams: List<Team>, venues: List<Venue>) {
     val db = FirebaseFirestore.getInstance()
     var showEditDialog by remember { mutableStateOf(false) }
     var showAssignDialog by remember { mutableStateOf(false) }
@@ -404,6 +413,7 @@ fun HomeMatchAdminCard(match: Match, referees: List<User>, teams: List<Team>) {
     val awayName = teams.find { it.id == match.awayTeamId }?.name ?: match.awayTeamId
     val refName = referees.find { it.uid == match.refereeId }?.displayName ?: "—"
     val coRefName = referees.find { it.uid == match.coRefereeId }?.displayName
+    val venueName = venues.find { it.id == match.venueId }?.name
 
     Card(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
         Column(modifier = Modifier.padding(12.dp)) {
@@ -411,6 +421,13 @@ fun HomeMatchAdminCard(match: Match, referees: List<User>, teams: List<Team>) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text("Gara ${match.code} [${match.status.uppercase()}]", fontSize = 12.sp, color = Color.Gray)
                     Text("$homeName vs $awayName", fontWeight = FontWeight.Bold)
+                    if (venueName != null) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.Place, null, modifier = Modifier.size(12.dp), tint = Color.Gray)
+                            Spacer(Modifier.width(2.dp))
+                            Text(venueName, style = MaterialTheme.typography.labelSmall, color = Color.Gray)
+                        }
+                    }
                     Text("Arbitri: $refName ${if(coRefName!=null) "/ $coRefName" else ""}", style = MaterialTheme.typography.bodySmall)
                 }
                 IconButton(onClick = { showEditDialog = true }) { Icon(Icons.Default.Edit, null) }
@@ -423,7 +440,7 @@ fun HomeMatchAdminCard(match: Match, referees: List<User>, teams: List<Team>) {
         }
     }
 
-    if (showEditDialog) { MatchEditDialog(match = match, teams = teams, onDismiss = { showEditDialog = false }, onSave = { db.collection("matches").document(match.id).set(it); showEditDialog = false }) }
+    if (showEditDialog) { MatchEditDialog(match = match, teams = teams, venues = venues, onDismiss = { showEditDialog = false }, onSave = { db.collection("matches").document(match.id).set(it); showEditDialog = false }) }
     if (showAssignDialog) {
         AlertDialog(onDismissRequest = { showAssignDialog = false }, title = { Text("Assegna Arbitro") }, text = {
             LazyColumn(Modifier.heightIn(max = 300.dp)) {

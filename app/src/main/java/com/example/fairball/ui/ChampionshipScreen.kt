@@ -19,16 +19,6 @@ import java.text.SimpleDateFormat
 import java.util.*
 import com.google.firebase.Timestamp
 
-fun Timestamp.toFormattedDate(): String {
-    val sdf = SimpleDateFormat("dd/MM/yyyy", Locale.ITALY)
-    return sdf.format(this.toDate())
-}
-
-fun Timestamp.toFormattedTime(): String {
-    val sdf = SimpleDateFormat("HH:mm", Locale.ITALY)
-    return sdf.format(this.toDate())
-}
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ChampionshipScreen(

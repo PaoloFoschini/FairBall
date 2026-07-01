@@ -15,6 +15,7 @@ import androidx.compose.ui.unit.dp
 import com.example.fairball.model.Match
 import com.example.fairball.model.Team
 import com.example.fairball.model.User
+import com.example.fairball.model.Venue
 import com.google.firebase.Timestamp
 import com.google.firebase.firestore.FirebaseFirestore
 
@@ -66,6 +67,7 @@ fun MatchManagementList() {
     var matches by remember { mutableStateOf<List<Match>>(emptyList()) }
     var referees by remember { mutableStateOf<List<User>>(emptyList()) }
     var teams by remember { mutableStateOf<List<Team>>(emptyList()) }
+    var venues by remember { mutableStateOf<List<Venue>>(emptyList()) }
     var showAddDialog by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
@@ -78,6 +80,9 @@ fun MatchManagementList() {
         db.collection("teams").addSnapshotListener { snapshot, _ ->
             teams = snapshot?.toObjects(Team::class.java) ?: emptyList()
         }
+        db.collection("venues").addSnapshotListener { snapshot, _ ->
+            venues = snapshot?.toObjects(Venue::class.java) ?: emptyList()
+        }
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
@@ -89,7 +94,7 @@ fun MatchManagementList() {
             LazyColumn(modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
                 item { Spacer(Modifier.height(8.dp)) }
                 items(matches, key = { it.id }) { match ->
-                    MatchAdminCard(match = match, referees = referees, teams = teams)
+                    MatchAdminCard(match = match, referees = referees, teams = teams, venues = venues)
                     Spacer(Modifier.height(8.dp))
                 }
                 item { Spacer(Modifier.height(80.dp)) } // spazio per FAB
@@ -106,6 +111,7 @@ fun MatchManagementList() {
     if (showAddDialog) {
         MatchEditDialog(
             teams = teams,
+            venues = venues,
             onDismiss = { showAddDialog = false },
             onSave = { newMatch ->
                 val docRef = db.collection("matches").document()
@@ -118,10 +124,10 @@ fun MatchManagementList() {
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Card singola partita per l'admin
-// Funzionalità: modifica squadre/punteggio · assegna arbitro (min 1, max 2) · elimina
+// Funzionalità: modifica squadre/punteggio/impianto · assegna arbitro (min 1, max 2) · elimina
 // ─────────────────────────────────────────────────────────────────────────────
 @Composable
-fun MatchAdminCard(match: Match, referees: List<User>, teams: List<Team>) {
+fun MatchAdminCard(match: Match, referees: List<User>, teams: List<Team>, venues: List<Venue>) {
     val db = FirebaseFirestore.getInstance()
     var showEditDialog by remember { mutableStateOf(false) }
     var showAssignDialog by remember { mutableStateOf(false) }
@@ -132,6 +138,7 @@ fun MatchAdminCard(match: Match, referees: List<User>, teams: List<Team>) {
     val awayTeamName = teams.find { it.id == match.awayTeamId }?.name ?: match.awayTeamId
     val refName = referees.find { it.uid == match.refereeId }?.displayName ?: "— nessuno —"
     val coRefName = referees.find { it.uid == match.coRefereeId }?.displayName
+    val venueName = venues.find { it.id == match.venueId }?.name
 
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -149,6 +156,13 @@ fun MatchAdminCard(match: Match, referees: List<User>, teams: List<Team>) {
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold
                     )
+                    if (venueName != null) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.Place, null, modifier = Modifier.size(14.dp), tint = Color.Gray)
+                            Spacer(Modifier.width(2.dp))
+                            Text(venueName, style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+                        }
+                    }
                     if (match.status == "finished") {
                         Text(
                             "Risultato: ${match.homeScore} – ${match.awayScore}",
@@ -226,11 +240,12 @@ fun MatchAdminCard(match: Match, referees: List<User>, teams: List<Team>) {
         }
     }
 
-    // ── Dialog: modifica squadre e punteggio ─────────────────────────────────
+    // ── Dialog: modifica squadre, punteggio e impianto ───────────────────────
     if (showEditDialog) {
         MatchEditDialog(
             match = match,
             teams = teams,
+            venues = venues,
             onDismiss = { showEditDialog = false },
             onSave = { updated ->
                 db.collection("matches").document(match.id).update(
@@ -340,12 +355,14 @@ fun MatchAdminCard(match: Match, referees: List<User>, teams: List<Team>) {
 // ─────────────────────────────────────────────────────────────────────────────
 // Dialog: crea / modifica partita
 // Se viene passata una Match esistente, vengono precompilati i campi incluso il punteggio.
+// L'impianto si seleziona tramite la mappa (VenuePickerDialog), non più come testo libero.
 // ─────────────────────────────────────────────────────────────────────────────
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MatchEditDialog(
     match: Match = Match(),
     teams: List<Team>,
+    venues: List<Venue>,
     onDismiss: () -> Unit,
     onSave: (Match) -> Unit
 ) {
@@ -354,7 +371,8 @@ fun MatchEditDialog(
     var code by remember { mutableStateOf(match.code) }
     var category by remember { mutableStateOf(match.category.ifEmpty { "Maschile" }) }
     var phase by remember { mutableStateOf(match.phase.ifEmpty { "Regular Season" }) }
-    var venue by remember { mutableStateOf(match.venueId) }
+    var selectedVenue by remember { mutableStateOf(venues.find { it.id == match.venueId }) }
+    var showVenuePicker by remember { mutableStateOf(false) }
     var homeTeamId by remember { mutableStateOf(match.homeTeamId) }
     var awayTeamId by remember { mutableStateOf(match.awayTeamId) }
     var homeScoreStr by remember { mutableStateOf(match.homeScore.toString()) }
@@ -374,12 +392,15 @@ fun MatchEditDialog(
                     )
                 }
                 item {
-                    OutlinedTextField(
-                        value = venue,
-                        onValueChange = { venue = it },
-                        label = { Text("Impianto") },
+                    Text("Impianto:", style = MaterialTheme.typography.labelMedium)
+                    OutlinedButton(
+                        onClick = { showVenuePicker = true },
                         modifier = Modifier.fillMaxWidth()
-                    )
+                    ) {
+                        Icon(Icons.Default.Place, null, Modifier.size(16.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text(selectedVenue?.name ?: "Seleziona su mappa")
+                    }
                 }
                 item {
                     Text("Categoria:", style = MaterialTheme.typography.labelMedium)
@@ -448,7 +469,7 @@ fun MatchEditDialog(
                         code = code,
                         category = category,
                         phase = phase,
-                        venueId = venue,
+                        venueId = selectedVenue?.id ?: match.venueId,
                         homeTeamId = homeTeamId,
                         awayTeamId = awayTeamId,
                         homeScore = homeScoreStr.toIntOrNull() ?: match.homeScore,
@@ -462,6 +483,21 @@ fun MatchEditDialog(
             TextButton(onClick = onDismiss) { Text("Annulla") }
         }
     )
+
+    if (showVenuePicker) {
+        VenuePickerDialog(
+            venues = venues,
+            onDismiss = { showVenuePicker = false },
+            onVenueSelected = { venue ->
+                selectedVenue = venue
+                showVenuePicker = false
+            },
+            onVenueCreated = { venue ->
+                selectedVenue = venue
+                showVenuePicker = false
+            }
+        )
+    }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

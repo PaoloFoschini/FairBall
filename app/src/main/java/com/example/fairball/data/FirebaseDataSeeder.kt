@@ -3,6 +3,7 @@ package com.example.fairball.data
 import com.example.fairball.model.Match
 import com.example.fairball.model.Team
 import com.example.fairball.model.User
+import com.example.fairball.model.Venue
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 
@@ -11,12 +12,9 @@ object FirebaseDataSeeder {
         val db = FirebaseFirestore.getInstance()
         val auth = FirebaseAuth.getInstance()
 
-        // Recuperiamo l'UID dell'utente attualmente loggato in Firebase (se presente)
         val currentUid = auth.currentUser?.uid
 
         // 1. SEED UTENTI
-        // Se l'utente corrente è l'admin loggato con Google, usiamo il suo UID reale,
-        // altrimenti usiamo l'ID di fallback "admin_test_id"
         val adminUid = if (currentUid != null && currentUid != "mario_rossi_test_id" && currentUid != "luigi_verdi_test_id") {
             currentUid
         } else {
@@ -65,9 +63,40 @@ object FirebaseDataSeeder {
             db.collection("teams").document(team.id).set(team)
         }
 
-        // 3. SEED PARTITE (Senza il parametro timestamp per non generare errori nel modello Match)
+        // 3. SEED IMPIANTI (VENUES)
+        val venues = listOf(
+            Venue(
+                id = "venue_milan_1",
+                name = "Allianz Cloud (PalaLido)",
+                university = "Politecnico di Milano",
+                address = "Piazza Carlo Stuparich, 1, 20148 Milano MI",
+                latitude = 45.4822,
+                longitude = 9.1415
+            ),
+            Venue(
+                id = "venue_rome_1",
+                name = "Palazzetto dello Sport",
+                university = "Sapienza Università di Roma",
+                address = "Piazza Apollodoro, 10, 00196 Roma RM",
+                latitude = 41.9291,
+                longitude = 12.4719
+            ),
+            Venue(
+                id = "venue_vicenza_1",
+                name = "Palasport Città di Vicenza",
+                university = "Università degli Studi di Verona - Sede di Vicenza",
+                address = "Via Goldoni, 12, 36100 Vicenza VI",
+                latitude = 45.5532,
+                longitude = 11.5348
+            )
+        )
+
+        for (venue in venues) {
+            db.collection("venues").document(venue.id).set(venue)
+        }
+
+        // 4. SEED PARTITE
         val matches = listOf(
-            // Partite FINISHED (Approvate -> Caricano lo storico ed i badge di Mario Rossi)
             Match(
                 id = "match_finished_1",
                 code = "101",
@@ -78,7 +107,8 @@ object FirebaseDataSeeder {
                 refereeId = "mario_rossi_test_id",
                 coRefereeId = "luigi_verdi_test_id",
                 homeScore = 3,
-                awayScore = 1
+                awayScore = 1,
+                venueId = "venue_milan_1"
             ),
             Match(
                 id = "match_finished_2",
@@ -90,21 +120,9 @@ object FirebaseDataSeeder {
                 refereeId = "mario_rossi_test_id",
                 coRefereeId = "",
                 homeScore = 2,
-                awayScore = 2
+                awayScore = 2,
+                venueId = "venue_rome_1"
             ),
-            Match(
-                id = "match_finished_3",
-                code = "103",
-                homeTeamId = "team_e",
-                awayTeamId = "team_f",
-                phase = "Girone B - Giornata 1",
-                status = "finished",
-                refereeId = "mario_rossi_test_id",
-                coRefereeId = "luigi_verdi_test_id",
-                homeScore = 0,
-                awayScore = 4
-            ),
-            // Partite ASSIGNED (Visualizzate nella Home dell'arbitro)
             Match(
                 id = "match_assigned_1",
                 code = "201",
@@ -113,16 +131,8 @@ object FirebaseDataSeeder {
                 phase = "Girone A - Giornata 3",
                 status = "assigned",
                 refereeId = "mario_rossi_test_id",
-                coRefereeId = ""
-            ),
-            // Partite UNASSIGNED (Disponibili per l'Admin nella sezione da approvare)
-            Match(
-                id = "match_unassigned_1",
-                code = "301",
-                homeTeamId = "team_d",
-                awayTeamId = "team_a",
-                phase = "Girone A - Giornata 4",
-                status = "unassigned"
+                coRefereeId = "",
+                venueId = "venue_vicenza_1"
             )
         )
 
