@@ -69,6 +69,9 @@ fun FairBallApp() {
                     val dest = if (uid != null) "profile?uid=$uid" else "profile"
                     navController.navigate(dest)
                 },
+                onViewRefereeProfile = { refereeId ->
+                    navController.navigate("profile?uid=$refereeId")
+                },
                 onViewChampionship = { navController.navigate("championship") },
                 onViewMap = { navController.navigate("map") },
                 onArbitrateMatch = { matchId -> navController.navigate("match_referee/$matchId") }
