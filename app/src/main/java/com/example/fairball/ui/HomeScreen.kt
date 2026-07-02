@@ -17,6 +17,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
@@ -144,7 +145,9 @@ fun ColumnScope.AdminHomeContent(
                 }
                 if (pendingApps.isNotEmpty()) {
                     item { HomeSectionTitle("Richieste di Prenotazione", Icons.Default.AssignmentInd) }
-                    items(pendingApps) { MatchApplicationCard(it, allReferees, teamsList) }
+                    items(pendingApps) { match ->
+                        MatchApplicationCard(match, allReferees, teamsList, venuesList)
+                    }
                 }
                 if (waitingAppr.isNotEmpty()) {
                     item { HomeSectionTitle("Referti da Verificare", Icons.Default.RateReview) }
@@ -191,6 +194,17 @@ fun ColumnScope.AdminHomeContent(
             }
         }
     }
+}
+
+@Composable
+fun ColumnScope.RefereeHomeContent(
+    effectiveUid: String?,
+    allMatches: List<Match>,
+    teamsMap: Map<String, String>,
+    onViewMap: Unit,
+    onArbitrateMatch: (String) -> Unit
+) {
+    // Nota: Ho mantenuto la firma identica, puoi passare anche un blocco lambda () -> Unit a onViewMap se necessario.
 }
 
 @Composable
@@ -266,7 +280,7 @@ fun ColumnScope.RefereeHomeContent(
                                 FirestoreRepository.withdrawApplication(match.id, effectiveUid!!)
                             }
                         }) {
-                            Icon(Icons.Default.Cancel, null, tint = Color.Red)
+                            Icon(Icons.Default.Delete, null, tint = MaterialTheme.colorScheme.error)
                         }
                     }
                 }
@@ -359,12 +373,32 @@ fun AvailableMatchCard(match: Match, teamsMap: Map<String, String>, onPrenotati:
 }
 
 @Composable
-fun MatchApplicationCard(match: Match, referees: List<User>, teams: List<Team>) {
+fun MatchApplicationCard(match: Match, referees: List<User>, teams: List<Team>, venues: List<Venue>) {
     val scope = rememberCoroutineScope()
+    val homeTeamName = teams.find { it.id == match.homeTeamId }?.name ?: match.homeTeamId
+    val awayTeamName = teams.find { it.id == match.awayTeamId }?.name ?: match.awayTeamId
+    val venueName = venues.find { it.id == match.venueId }?.name ?: "Sede non specificata"
+
     Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
         Column(modifier = Modifier.padding(16.dp)) {
-            Text("Gara ${match.code}: ${teams.find { it.id == match.homeTeamId }?.name ?: match.homeTeamId} vs ${teams.find { it.id == match.awayTeamId }?.name ?: match.awayTeamId}", fontWeight = FontWeight.Bold)
-            Text("${match.scheduledAt?.toFormattedDate()} ${match.scheduledAt?.toFormattedTime()}", fontSize = 12.sp, color = Color.Gray)
+            Text("$homeTeamName vs $awayTeamName", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+
+            Spacer(Modifier.height(4.dp))
+
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Default.Schedule, null, modifier = Modifier.size(14.dp), tint = Color.Gray)
+                Spacer(Modifier.width(4.dp))
+                Text("${match.scheduledAt?.toFormattedDate()} ${match.scheduledAt?.toFormattedTime()}", fontSize = 12.sp, color = Color.Gray)
+            }
+
+            Spacer(Modifier.height(4.dp))
+
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Default.Place, null, modifier = Modifier.size(14.dp), tint = Color.Gray)
+                Spacer(Modifier.width(4.dp))
+                Text(venueName, fontSize = 12.sp, color = Color.Gray)
+            }
+
             Spacer(Modifier.height(8.dp))
             Text("Candidati:", style = MaterialTheme.typography.labelMedium)
             for (uid in match.refereeApplications) {
@@ -436,27 +470,41 @@ fun HomeMatchAdminCard(match: Match, referees: List<User>, teams: List<Team>, ve
     val awayName = teams.find { it.id == match.awayTeamId }?.name ?: match.awayTeamId
     val refName = referees.find { it.uid == match.refereeId }?.displayName ?: "—"
     val coRefName = referees.find { it.uid == match.coRefereeId }?.displayName
-    val venueName = venues.find { it.id == match.venueId }?.name
+    val venueName = venues.find { it.id == match.venueId }?.name ?: "Sede non specificata"
 
     Card(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
         Column(modifier = Modifier.padding(12.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(modifier = Modifier.weight(1f)) {
-                    Text("Gara ${match.code} [${match.status.uppercase()}]", fontSize = 12.sp, color = Color.Gray)
-                    Text("$homeName vs $awayName", fontWeight = FontWeight.Bold)
-                    if (venueName != null) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Default.Place, null, modifier = Modifier.size(12.dp), tint = Color.Gray)
-                            Spacer(Modifier.width(2.dp))
-                            Text(venueName, style = MaterialTheme.typography.labelSmall, color = Color.Gray)
-                        }
+                    Text("$homeName vs $awayName", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+
+                    Spacer(Modifier.height(4.dp))
+
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Default.Schedule, null, modifier = Modifier.size(14.dp), tint = Color.Gray)
+                        Spacer(Modifier.width(4.dp))
+                        Text(
+                            text = "${match.scheduledAt?.toFormattedDate() ?: "Data N/D"} ${match.scheduledAt?.toFormattedTime() ?: "Ora N/D"}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Color.Gray
+                        )
                     }
+
+                    Spacer(Modifier.height(2.dp))
+
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Default.Place, null, modifier = Modifier.size(14.dp), tint = Color.Gray)
+                        Spacer(Modifier.width(4.dp))
+                        Text(venueName, style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+                    }
+
+                    Spacer(Modifier.height(4.dp))
                     Text("Arbitri: $refName ${if (coRefName != null) "/ $coRefName" else ""}", style = MaterialTheme.typography.bodySmall)
                 }
                 IconButton(onClick = { showEditDialog = true }) { Icon(Icons.Default.Edit, null) }
                 IconButton(onClick = {
                     scope.launch { FirestoreRepository.deleteMatch(match.id) }
-                }) { Icon(Icons.Default.Delete, null, tint = Color.Red) }
+                }) { Icon(Icons.Default.Delete, null, tint = MaterialTheme.colorScheme.error) }
             }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedButton(
@@ -490,7 +538,7 @@ fun HomeMatchAdminCard(match: Match, referees: List<User>, teams: List<Team>, ve
 
     if (showAssignDialog) {
         AssignRefereeDialog(
-            matchId = match.id,
+            match = match,
             referees = referees,
             isCoReferee = isAssigningCoReferee,
             currentRefereeId = if (isAssigningCoReferee) match.coRefereeId else match.refereeId,
@@ -518,7 +566,6 @@ fun DocMiniPreview(uri: String?, label: String) {
     }
 }
 
-// Funzione di utilità per convertire Match in Map (per aggiornamenti)
 private fun Match.toMap(): Map<String, Any?> = mapOf(
     "homeTeamId" to homeTeamId,
     "awayTeamId" to awayTeamId,

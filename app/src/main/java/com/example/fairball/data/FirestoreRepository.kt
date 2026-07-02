@@ -148,4 +148,13 @@ object FirestoreRepository {
     suspend fun updateUserPhoto(uid: String, photoUrl: String) {
         db.collection("users").document(uid).update("photoUrl", photoUrl).await()
     }
+
+    suspend fun updateUserProfile(uid: String, displayName: String, email: String) {
+        db.collection("users").document(uid).update(
+            mapOf(
+                "displayName" to displayName,
+                "email" to email
+            )
+        ).await()
+    }
 }

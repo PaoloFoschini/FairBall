@@ -259,7 +259,7 @@ fun MatchAdminCard(
 
     if (showAssignDialog) {
         AssignRefereeDialog(
-            matchId = match.id,
+            match = match,
             referees = referees,
             isCoReferee = isAssigningCoReferee,
             currentRefereeId = if (isAssigningCoReferee) match.coRefereeId else match.refereeId,
@@ -289,13 +289,39 @@ fun MatchAdminCard(
 
 @Composable
 fun AssignRefereeDialog(
-    matchId: String,
+    match: Match,
     referees: List<User>,
     isCoReferee: Boolean,
     currentRefereeId: String?,
     onDismiss: () -> Unit
 ) {
     val scope = rememberCoroutineScope()
+    val allMatches by FirestoreRepository.matchesFlow().collectAsState(initial = emptyList())
+
+    // Filtra gli arbitri in base ai criteri richiesti direttamente dall'oggetto match sincronizzato
+    val availableReferees = referees.filter { referee ->
+        // 1. Evita assegnazione contemporanea dello stesso utente come Arbitro e Co-Arbitro
+        if (isCoReferee && match.refereeId == referee.uid) return@filter false
+        if (!isCoReferee && match.coRefereeId == referee.uid) return@filter false
+
+        // 2. Controllo conflitti orari (stesso giorno e stessa ora di inizio)
+        val currentMatchDate = match.scheduledAt?.toFormattedDate()
+        val currentMatchTime = match.scheduledAt?.toFormattedTime()
+
+        if (currentMatchDate != null && currentMatchTime != null) {
+            val hasConflict = allMatches.any { otherMatch ->
+                otherMatch.id != match.id &&
+                        (otherMatch.refereeId == referee.uid || otherMatch.coRefereeId == referee.uid) &&
+                        otherMatch.scheduledAt?.toFormattedDate() == currentMatchDate &&
+                        otherMatch.scheduledAt?.toFormattedTime() == currentMatchTime
+            }
+
+            if (hasConflict) return@filter false
+        }
+
+        true
+    }
+
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(if (isCoReferee) "Assegna Co-Arbitro" else "Assegna Arbitro Principale") },
@@ -305,7 +331,7 @@ fun AssignRefereeDialog(
                     TextButton(
                         onClick = {
                             scope.launch {
-                                FirestoreRepository.removeReferee(matchId, isCoReferee)
+                                FirestoreRepository.removeReferee(match.id, isCoReferee)
                                 onDismiss()
                             }
                         },
@@ -316,12 +342,12 @@ fun AssignRefereeDialog(
                         Text("Rimuovi assegnazione", color = Color.Red)
                     }
                 }
-                items(referees) { referee ->
+                items(availableReferees) { referee ->
                     val isCurrent = referee.uid == currentRefereeId
                     TextButton(
                         onClick = {
                             scope.launch {
-                                FirestoreRepository.assignReferee(matchId, referee.uid, isCoReferee)
+                                FirestoreRepository.assignReferee(match.id, referee.uid, isCoReferee)
                                 onDismiss()
                             }
                         },
@@ -335,6 +361,16 @@ fun AssignRefereeDialog(
                             referee.displayName,
                             color = if (isCurrent) MaterialTheme.colorScheme.primary else Color.Unspecified,
                             fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.Normal
+                        )
+                    }
+                }
+                if (availableReferees.isEmpty()) {
+                    item {
+                        Text(
+                            "Nessun arbitro disponibile o già impegnato in questa data/ora.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Color.Gray,
+                            modifier = Modifier.padding(16.dp)
                         )
                     }
                 }
@@ -381,6 +417,7 @@ fun RefereeManagementList(onViewProfile: ((String) -> Unit)? = null) {
 fun RefereeAdminCard(referee: User, onViewProfile: (() -> Unit)? = null) {
     val scope = rememberCoroutineScope()
     var showDeleteConfirm by remember { mutableStateOf(false) }
+    var showEditDialog by remember { mutableStateOf(false) } // <-- Aggiunto lo stato per mostrare il Dialog
 
     Card(modifier = Modifier.fillMaxWidth()) {
         Row(
@@ -391,15 +428,30 @@ fun RefereeAdminCard(referee: User, onViewProfile: (() -> Unit)? = null) {
                 Text(referee.displayName, style = MaterialTheme.typography.titleMedium)
                 Text(referee.email, style = MaterialTheme.typography.bodySmall, color = Color.Gray)
             }
-            if (onViewProfile != null) {
-                IconButton(onClick = onViewProfile) {
-                    Icon(Icons.Default.Person, contentDescription = "Vedi profilo", tint = MaterialTheme.colorScheme.primary)
-                }
+
+            // Cambiato il click: ora imposta showEditDialog su true
+            IconButton(onClick = { showEditDialog = true }) {
+                Icon(Icons.Default.Edit, contentDescription = "Modifica profilo", tint = MaterialTheme.colorScheme.primary)
             }
+
             IconButton(onClick = { showDeleteConfirm = true }) {
                 Icon(Icons.Default.Delete, contentDescription = "Elimina arbitro", tint = MaterialTheme.colorScheme.error)
             }
         }
+    }
+
+    // <-- Inserito il controllo per mostrare il dialogo di modifica
+    if (showEditDialog) {
+        RefereeEditDialog(
+            referee = referee,
+            onDismiss = { showEditDialog = false },
+            onSave = { newName, newEmail ->
+                scope.launch {
+                    FirestoreRepository.updateUserProfile(referee.uid, newName, newEmail)
+                    showEditDialog = false
+                }
+            }
+        )
     }
 
     if (showDeleteConfirm) {
