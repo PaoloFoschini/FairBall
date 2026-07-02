@@ -7,9 +7,9 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import com.example.fairball.data.FirestoreRepository
 import com.example.fairball.model.Match
 import com.example.fairball.model.Venue
-import com.google.firebase.firestore.FirebaseFirestore
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -17,44 +17,23 @@ fun MapScreen(
     onBack: () -> Unit,
     onViewMatchReport: (String) -> Unit = {}
 ) {
-    val db = FirebaseFirestore.getInstance()
-
-    var venues by remember { mutableStateOf<List<Venue>>(emptyList()) }
+    val venues by FirestoreRepository.venuesFlow().collectAsState(initial = null)
     var teamsMap by remember { mutableStateOf<Map<String, String>>(emptyMap()) }
+    LaunchedEffect(Unit) {
+        teamsMap = FirestoreRepository.fetchTeamNameMap()
+    }
+
     var selectedVenue by remember { mutableStateOf<Venue?>(null) }
     var venueMatches by remember { mutableStateOf<List<Match>>(emptyList()) }
     var isLoadingMatches by remember { mutableStateOf(false) }
 
     val userLocation by rememberUserLocation()
 
-    LaunchedEffect(Unit) {
-        db.collection("venues").addSnapshotListener { snap, _ ->
-            venues = snap?.toObjects(Venue::class.java) ?: emptyList()
-        }
-        db.collection("teams").get().addOnSuccessListener { snap ->
-            teamsMap = snap.documents.associate { it.id to (it.getString("name") ?: it.id) }
-        }
-    }
-
-    // Ogni volta che si seleziona un impianto, carichiamo le partite finite giocate lì
     LaunchedEffect(selectedVenue) {
-        val venue = selectedVenue
-        if (venue == null) {
-            venueMatches = emptyList()
-            return@LaunchedEffect
-        }
+        val venue = selectedVenue ?: return@LaunchedEffect
         isLoadingMatches = true
-        db.collection("matches")
-            .whereEqualTo("venueId", venue.id)
-            .whereEqualTo("status", "finished")
-            .get()
-            .addOnSuccessListener { snap ->
-                venueMatches = snap.documents
-                    .mapNotNull { it.toObject(Match::class.java) }
-                    .sortedByDescending { it.scheduledAt?.seconds ?: 0L }
-                isLoadingMatches = false
-            }
-            .addOnFailureListener { isLoadingMatches = false }
+        venueMatches = FirestoreRepository.fetchFinishedMatchesAtVenue(venue.id)
+        isLoadingMatches = false
     }
 
     Scaffold(
@@ -69,12 +48,17 @@ fun MapScreen(
             )
         }
     ) { padding ->
-        VenueMapView(
-            modifier = Modifier.fillMaxSize().padding(padding),
-            venues = venues,
-            userLocation = userLocation,
-            onMarkerClick = { venue -> selectedVenue = venue }
-        )
+        if (venues == null) {
+            // caricamento
+            Surface(modifier = Modifier.fillMaxSize().padding(padding)) { /* spinner */ }
+        } else {
+            VenueMapView(
+                modifier = Modifier.fillMaxSize().padding(padding),
+                venues = venues!!,
+                userLocation = userLocation,
+                onMarkerClick = { venue -> selectedVenue = venue }
+            )
+        }
     }
 
     selectedVenue?.let { venue ->

@@ -18,7 +18,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
-import com.google.firebase.firestore.FirebaseFirestore
+import com.example.fairball.data.FirestoreRepository
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -27,7 +28,7 @@ fun MatchSummaryScreen(
     onFinish: () -> Unit,
     onBack: () -> Unit
 ) {
-    val db = FirebaseFirestore.getInstance()
+    val scope = rememberCoroutineScope()
     var photoDistintaA by remember { mutableStateOf<Uri?>(null) }
     var photoDistintaB by remember { mutableStateOf<Uri?>(null) }
     var photoReferto by remember { mutableStateOf<Uri?>(null) }
@@ -59,19 +60,11 @@ fun MatchSummaryScreen(
         }
     ) { padding ->
         Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-                .padding(16.dp)
-                .verticalScroll(rememberScrollState()),
+            modifier = Modifier.fillMaxSize().padding(padding).padding(16.dp).verticalScroll(rememberScrollState()),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            Text(
-                text = "Allega i documenti ufficiali",
-                style = MaterialTheme.typography.titleLarge
-            )
-
+            Text("Allega i documenti ufficiali", style = MaterialTheme.typography.titleLarge)
             Text(
                 "Le immagini verranno inviate all'amministratore per la verifica finale.",
                 style = MaterialTheme.typography.bodySmall,
@@ -83,20 +76,18 @@ fun MatchSummaryScreen(
                 imageUri = photoDistintaA,
                 onUploadClick = { showPickerFor = "A" }
             )
-
             PhotoUploadSection(
                 label = "Distinta Ospiti",
                 imageUri = photoDistintaB,
                 onUploadClick = { showPickerFor = "B" }
             )
-
             PhotoUploadSection(
                 label = "Referto Gara",
                 imageUri = photoReferto,
                 onUploadClick = { showPickerFor = "Referto" }
             )
 
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(Modifier.height(24.dp))
 
             if (isSubmitting) {
                 CircularProgressIndicator()
@@ -104,16 +95,14 @@ fun MatchSummaryScreen(
                 Button(
                     onClick = {
                         isSubmitting = true
-                        // Aggiorna lo stato del match in "waiting_approval" e salva i link (qui simulati con URI locali)
-                        db.collection("matches").document(matchId).update(mapOf(
-                            "status" to "waiting_approval",
-                            "photoDistintaA" to photoDistintaA.toString(),
-                            "photoDistintaB" to photoDistintaB.toString(),
-                            "photoReferto" to photoReferto.toString()
-                        )).addOnSuccessListener {
+                        scope.launch {
+                            FirestoreRepository.submitMatchReport(
+                                matchId,
+                                photoDistintaA?.toString(),
+                                photoDistintaB?.toString(),
+                                photoReferto?.toString()
+                            )
                             onFinish()
-                        }.addOnFailureListener {
-                            isSubmitting = false
                         }
                     },
                     modifier = Modifier.fillMaxWidth(),
@@ -135,7 +124,7 @@ fun MatchSummaryScreen(
                         Icon(Icons.Default.PhotoLibrary, null, modifier = Modifier.size(48.dp))
                         Text("Galleria")
                     }
-                    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.clickable { /* cameraLauncher.launch(null) */ galleryLauncher.launch("image/*") }) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.clickable { galleryLauncher.launch("image/*") }) {
                         Icon(Icons.Default.CameraAlt, null, modifier = Modifier.size(48.dp))
                         Text("Fotocamera")
                     }
@@ -147,50 +136,27 @@ fun MatchSummaryScreen(
 }
 
 @Composable
-fun PhotoUploadSection(
-    label: String,
-    imageUri: Uri?,
-    onUploadClick: () -> Unit
-) {
+fun PhotoUploadSection(label: String, imageUri: Uri?, onUploadClick: () -> Unit) {
     Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable { onUploadClick() },
+        modifier = Modifier.fillMaxWidth().clickable { onUploadClick() },
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
-        Column(
-            modifier = Modifier
-                .padding(16.dp)
-                .fillMaxWidth(),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Text(text = label, style = MaterialTheme.typography.bodyMedium)
-            Spacer(modifier = Modifier.height(8.dp))
-            
+        Column(modifier = Modifier.padding(16.dp).fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(label, style = MaterialTheme.typography.bodyMedium)
+            Spacer(Modifier.height(8.dp))
             if (imageUri != null) {
                 Box(contentAlignment = Alignment.TopEnd) {
                     AsyncImage(
                         model = imageUri,
                         contentDescription = label,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(150.dp)
-                            .border(1.dp, Color.Gray),
+                        modifier = Modifier.fillMaxWidth().height(150.dp).border(1.dp, Color.Gray),
                         contentScale = ContentScale.Crop
                     )
-                    Icon(
-                        imageVector = Icons.Default.CheckCircle,
-                        contentDescription = "Caricato",
-                        tint = Color.Green,
-                        modifier = Modifier.padding(4.dp)
-                    )
+                    Icon(Icons.Default.CheckCircle, contentDescription = "Caricato", tint = Color.Green, modifier = Modifier.padding(4.dp))
                 }
             } else {
                 Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(80.dp)
-                        .border(1.dp, Color.Gray, shape = MaterialTheme.shapes.medium),
+                    modifier = Modifier.fillMaxWidth().height(80.dp).border(1.dp, Color.Gray, shape = MaterialTheme.shapes.medium),
                     contentAlignment = Alignment.Center
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {

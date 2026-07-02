@@ -10,11 +10,11 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.example.fairball.data.FirestoreRepository
 import com.example.fairball.model.Match
 import com.example.fairball.model.Team
-import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.delay
-import java.util.*
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -23,41 +23,36 @@ fun MatchRefereeScreen(
     onBack: () -> Unit,
     onEndMatch: (String) -> Unit
 ) {
-    val db = FirebaseFirestore.getInstance()
-    var match by remember { mutableStateOf<Match?>(null) }
+    val scope = rememberCoroutineScope()
+    val match by FirestoreRepository.matchesFlow().collectAsState(initial = null)
+    val teams by FirestoreRepository.teamsFlow().collectAsState(initial = null)
+
+    // Dato che abbiamo il flow, dobbiamo trovare il match specifico
+    var currentMatch by remember { mutableStateOf<Match?>(null) }
     var homeTeam by remember { mutableStateOf<Team?>(null) }
     var awayTeam by remember { mutableStateOf<Team?>(null) }
-    var isLoading by remember { mutableStateOf(true) }
 
-    var homeScore by remember { mutableIntStateOf(0) }
-    var awayScore by remember { mutableIntStateOf(0) }
-
-    // Timer state
-    var timeLeftSeconds by remember { mutableIntStateOf(0) }
-    var isTimerRunning by remember { mutableStateOf(false) }
-
-    LaunchedEffect(matchId) {
-        db.collection("matches").document(matchId).get().addOnSuccessListener { document ->
-            val m = document.toObject(Match::class.java)
-            match = m
-            if (m != null) {
-                homeScore = m.homeScore
-                awayScore = m.awayScore
-                
-                // Fetch Team names
-                db.collection("teams").document(m.homeTeamId).get().addOnSuccessListener { homeDoc ->
-                    homeTeam = homeDoc.toObject(Team::class.java)
-                }
-                db.collection("teams").document(m.awayTeamId).get().addOnSuccessListener { awayDoc ->
-                    awayTeam = awayDoc.toObject(Team::class.java)
-                    isLoading = false
-                }
-            } else {
-                isLoading = false
-            }
+    LaunchedEffect(match, teams, matchId) {
+        currentMatch = match?.find { it.id == matchId }
+        if (currentMatch != null && teams != null) {
+            homeTeam = teams!!.find { it.id == currentMatch!!.homeTeamId }
+            awayTeam = teams!!.find { it.id == currentMatch!!.awayTeamId }
         }
     }
 
+    var homeScore by remember { mutableIntStateOf(currentMatch?.homeScore ?: 0) }
+    var awayScore by remember { mutableIntStateOf(currentMatch?.awayScore ?: 0) }
+    var timeLeftSeconds by remember { mutableIntStateOf(0) }
+    var isTimerRunning by remember { mutableStateOf(false) }
+
+    // Aggiorna il punteggio su Firestore quando cambia
+    LaunchedEffect(homeScore, awayScore) {
+        if (currentMatch != null) {
+            FirestoreRepository.updateScore(matchId, homeScore, awayScore)
+        }
+    }
+
+    // Timer
     LaunchedEffect(isTimerRunning, timeLeftSeconds) {
         if (isTimerRunning && timeLeftSeconds > 0) {
             delay(1000L)
@@ -79,64 +74,48 @@ fun MatchRefereeScreen(
             )
         }
     ) { padding ->
-        if (isLoading) {
+        if (currentMatch == null || homeTeam == null || awayTeam == null) {
             Box(modifier = Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
                 CircularProgressIndicator()
             }
-        } else if (match != null) {
+        } else {
             Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(padding)
-                    .padding(16.dp),
+                modifier = Modifier.fillMaxSize().padding(padding).padding(16.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(24.dp)
             ) {
-                // Score Section
+                // Score
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceEvenly,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     TeamScoreControl(
-                        teamName = homeTeam?.name ?: "Casa",
+                        teamName = homeTeam!!.name,
                         score = homeScore,
-                        onScoreChange = { 
-                            homeScore = it
-                            db.collection("matches").document(matchId).update("homeScore", it)
-                        }
+                        onScoreChange = { homeScore = it }
                     )
                     Text("VS", style = MaterialTheme.typography.headlineMedium)
                     TeamScoreControl(
-                        teamName = awayTeam?.name ?: "Ospiti",
+                        teamName = awayTeam!!.name,
                         score = awayScore,
-                        onScoreChange = { 
-                            awayScore = it
-                            db.collection("matches").document(matchId).update("awayScore", it)
-                        }
+                        onScoreChange = { awayScore = it }
                     )
                 }
 
                 HorizontalDivider()
 
-                // Timer Section
+                // Timer
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(
-                        text = formatTime(timeLeftSeconds),
-                        style = MaterialTheme.typography.displayLarge
-                    )
-                    
-                    Spacer(modifier = Modifier.height(8.dp))
-                    
+                    Text(formatTime(timeLeftSeconds), style = MaterialTheme.typography.displayLarge)
+                    Spacer(Modifier.height(8.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         Button(onClick = { timeLeftSeconds = 20 * 60; isTimerRunning = true }) { Text("20 min") }
                         Button(onClick = { timeLeftSeconds = 5 * 60; isTimerRunning = true }) { Text("5 min") }
                         Button(onClick = { timeLeftSeconds = 1 * 60; isTimerRunning = true }) { Text("1 min") }
                     }
-                    
                     if (timeLeftSeconds > 0) {
-                        Spacer(modifier = Modifier.height(16.dp))
-                        
+                        Spacer(Modifier.height(16.dp))
                         FilledIconButton(
                             onClick = { isTimerRunning = !isTimerRunning },
                             modifier = Modifier.size(64.dp),
@@ -145,12 +124,11 @@ fun MatchRefereeScreen(
                             )
                         ) {
                             Icon(
-                                imageVector = if (isTimerRunning) Icons.Default.Pause else Icons.Default.PlayArrow,
+                                if (isTimerRunning) Icons.Default.Pause else Icons.Default.PlayArrow,
                                 contentDescription = if (isTimerRunning) "Pausa" else "Avvia",
                                 modifier = Modifier.size(32.dp)
                             )
                         }
-                        
                         Text(
                             text = if (isTimerRunning) "PAUSA" else "AVVIA",
                             style = MaterialTheme.typography.labelLarge,

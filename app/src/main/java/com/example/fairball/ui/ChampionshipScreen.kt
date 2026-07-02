@@ -12,12 +12,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.example.fairball.data.FirestoreRepository
 import com.example.fairball.model.Match
-import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.firestore.FirebaseFirestore
-import java.text.SimpleDateFormat
-import java.util.*
-import com.google.firebase.Timestamp
+import com.example.fairball.model.MatchStatus
+import com.example.fairball.model.statusEnum
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -25,28 +23,21 @@ fun ChampionshipScreen(
     onBack: () -> Unit,
     onViewReport: (String) -> Unit
 ) {
-    val db = FirebaseFirestore.getInstance()
-
-    var pastMatches by remember { mutableStateOf<List<Match>>(emptyList()) }
     var allUsers by remember { mutableStateOf<Map<String, String>>(emptyMap()) }
     var allTeams by remember { mutableStateOf<Map<String, String>>(emptyMap()) }
-    var isLoading by remember { mutableStateOf(true) }
+
+    // null finché non arriva il primo snapshot: distingue "sto caricando" da "0 partite"
+    val allMatches by remember { FirestoreRepository.matchesFlow() }.collectAsState(initial = null)
+    val isLoading = allMatches == null
+    val pastMatches = remember(allMatches) {
+        allMatches.orEmpty()
+            .filter { it.statusEnum == MatchStatus.FINISHED }
+            .sortedByDescending { it.scheduledAt?.seconds ?: 0L }
+    }
 
     LaunchedEffect(Unit) {
-        db.collection("users").get().addOnSuccessListener { userSnap ->
-            allUsers = userSnap.documents.associate { it.id to (it.getString("displayName") ?: "Sconosciuto") }
-        }
-        db.collection("teams").get().addOnSuccessListener { teamSnap ->
-            allTeams = teamSnap.documents.associate { it.id to (it.getString("name") ?: it.id) }
-        }
-        db.collection("matches")
-            .whereEqualTo("status", "finished")
-            .addSnapshotListener { result, _ ->
-                pastMatches = result?.documents?.mapNotNull { doc ->
-                    doc.toObject(Match::class.java)?.copy(id = doc.id)
-                }?.sortedByDescending { it.scheduledAt?.seconds ?: 0L } ?: emptyList()
-                isLoading = false
-            }
+        allUsers = FirestoreRepository.fetchUserNameMap()
+        allTeams = FirestoreRepository.fetchTeamNameMap()
     }
 
     Scaffold(

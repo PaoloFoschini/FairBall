@@ -15,12 +15,11 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.example.fairball.data.FirestoreRepository
 import com.example.fairball.model.Match
 import com.example.fairball.model.User
-import com.google.firebase.firestore.FirebaseFirestore
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -28,18 +27,17 @@ fun LeagueRefereesScreen(
     onBack: () -> Unit,
     onRefereeClick: (String) -> Unit
 ) {
-    val db = FirebaseFirestore.getInstance()
-    var refereeStats by remember { mutableStateOf<List<RefereeStat>>(emptyList()) }
+    val allReferees by FirestoreRepository.refereesFlow().collectAsState(initial = null)
+    val allMatches by FirestoreRepository.matchesFlow().collectAsState(initial = null)
     var isLoading by remember { mutableStateOf(true) }
+    var refereeStats by remember { mutableStateOf<List<RefereeStat>>(emptyList()) }
 
-    LaunchedEffect(Unit) {
-        db.collection("users").whereEqualTo("role", "referee").get().addOnSuccessListener { userSnapshot ->
-            val referees = userSnapshot.toObjects(User::class.java)
-            db.collection("matches").whereEqualTo("status", "finished").get().addOnSuccessListener { matchSnapshot ->
-                val finishedMatches = matchSnapshot.toObjects(Match::class.java)
-                refereeStats = referees.map { calculateRefereeStats(it, finishedMatches) }.sortedByDescending { it.matchCount }
-                isLoading = false
-            }
+    LaunchedEffect(allReferees, allMatches) {
+        if (allReferees != null && allMatches != null) {
+            refereeStats = allReferees!!.map { referee ->
+                calculateRefereeStats(referee, allMatches!!)
+            }.sortedByDescending { it.matchCount }
+            isLoading = false
         }
     }
 
@@ -65,8 +63,8 @@ fun LeagueRefereesScreen(
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 item { Text("Hall of Fame", style = MaterialTheme.typography.headlineSmall) }
-                items(refereeStats) { stat -> 
-                    RefereeStatCard(stat, onClick = { onRefereeClick(stat.user.uid) }) 
+                items(refereeStats) { stat ->
+                    RefereeStatCard(stat, onClick = { onRefereeClick(stat.user.uid) })
                 }
             }
         }
@@ -84,7 +82,10 @@ fun RefereeStatCard(stat: RefereeStat, onClick: () -> Unit) {
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(modifier = Modifier.size(40.dp).background(MaterialTheme.colorScheme.primaryContainer, CircleShape), contentAlignment = Alignment.Center) {
+                Box(
+                    modifier = Modifier.size(40.dp).background(MaterialTheme.colorScheme.primaryContainer, CircleShape),
+                    contentAlignment = Alignment.Center
+                ) {
                     Text(stat.user.displayName.take(1).uppercase(), fontWeight = FontWeight.Bold)
                 }
                 Spacer(modifier = Modifier.width(12.dp))
