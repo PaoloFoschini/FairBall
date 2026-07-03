@@ -46,7 +46,15 @@ object FirebaseDataSeeder {
         )
 
         for (user in users) {
-            db.collection("users").document(user.uid).set(user)
+            val docRef = db.collection("users").document(user.uid)
+            docRef.get().addOnSuccessListener { snapshot ->
+                if (!snapshot.exists()) {
+                    docRef.set(user)
+                }
+                // Se il documento esiste già, non lo tocchiamo: evitiamo così di
+                // sovrascrivere un ruolo (admin/referee) modificato manualmente
+                // dal pannello di amministrazione ogni volta che l'app viene riavviata.
+            }
         }
 
         // 2. SEED SQUADRE

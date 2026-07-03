@@ -36,15 +36,32 @@ fun FairBallApp() {
 
     NavHost(navController = navController, startDestination = "login") {
         composable("login") {
-            LoginScreen(onLoginSuccess = { role, uid ->
-                Session.uid = uid
-                Session.role = role
+            LoginScreen(
+                onLoginSuccess = { role, uid ->
+                    Session.uid = uid
+                    Session.role = role
 
-                val destination = if (uid != null) "home/$role?uid=$uid" else "home/$role"
-                navController.navigate(destination) {
-                    popUpTo("login") { inclusive = true }
-                }
-            })
+                    val destination = if (uid != null) "home/$role?uid=$uid" else "home/$role"
+                    navController.navigate(destination) {
+                        popUpTo("login") { inclusive = true }
+                    }
+                },
+                onNavigateToRegister = { navController.navigate("register") }
+            )
+        }
+        composable("register") {
+            RegisterScreen(
+                onRegisterSuccess = { role, uid ->
+                    Session.uid = uid
+                    Session.role = role
+
+                    val destination = if (uid != null) "home/$role?uid=$uid" else "home/$role"
+                    navController.navigate(destination) {
+                        popUpTo("login") { inclusive = true }
+                    }
+                },
+                onNavigateToLogin = { navController.popBackStack() }
+            )
         }
         composable(
             route = "home/{role}?uid={uid}",

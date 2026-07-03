@@ -9,16 +9,17 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import com.example.fairball.R // Import dell'R del tuo pacchetto
+import com.example.fairball.R
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.launch
 
 @Composable
-fun LoginScreen(
-    onLoginSuccess: (String, String?) -> Unit,
-    onNavigateToRegister: () -> Unit
+fun RegisterScreen(
+    onRegisterSuccess: (String, String?) -> Unit,
+    onNavigateToLogin: () -> Unit
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -26,33 +27,34 @@ fun LoginScreen(
     val db = FirebaseFirestore.getInstance()
     var isLoading by remember { mutableStateOf(false) }
 
-    fun startGoogleSignIn() {
+    fun startGoogleRegistration() {
         scope.launch {
             isLoading = true
-            // filterByAuthorizedAccounts = true: mostriamo solo account Google già usati
-            // in precedenza con questa app, coerente con una schermata di solo LOGIN.
-            when (val outcome = signInWithGoogle(context, filterByAuthorizedAccounts = true)) {
+            // filterByAuthorizedAccounts = false: mostriamo tutti gli account Google presenti
+            // sul dispositivo, perché l'utente potrebbe non aver mai usato l'app prima.
+            when (val outcome = signInWithGoogle(context, filterByAuthorizedAccounts = false)) {
                 is GoogleSignInOutcome.Success -> {
-                    when (val result = lookupUser(db, outcome.firebaseUser)) {
+                    when (lookupUser(db, outcome.firebaseUser)) {
                         is UserLookupResult.Found -> {
-                            onLoginSuccess(result.role, outcome.firebaseUser.uid)
-                        }
-                        UserLookupResult.NotFound -> {
-                            // Utente autenticato con Google ma senza profilo nel database:
-                            // non lo registriamo automaticamente, lo mandiamo alla registrazione.
+                            // Esiste già un profilo per questo account: niente doppia registrazione.
                             auth.signOut()
                             Toast.makeText(
                                 context,
-                                "Nessun account trovato. Registrati per continuare.",
+                                "Esiste già un account con questo indirizzo Google. Effettua il login.",
                                 Toast.LENGTH_LONG
                             ).show()
+                            onNavigateToLogin()
+                        }
+                        UserLookupResult.NotFound -> {
+                            val role = createUserProfile(db, outcome.firebaseUser)
+                            onRegisterSuccess(role, outcome.firebaseUser.uid)
                         }
                     }
                 }
                 GoogleSignInOutcome.NoCredential -> {
                     Toast.makeText(
                         context,
-                        "Nessun account Google salvato su questo dispositivo. Registrati per continuare.",
+                        "Nessun account Google disponibile sul dispositivo.",
                         Toast.LENGTH_LONG
                     ).show()
                 }
@@ -80,31 +82,32 @@ fun LoginScreen(
         )
 
         Text(
-            text = "FairBall",
-            style = MaterialTheme.typography.headlineMedium
+            text = "Crea il tuo account",
+            style = MaterialTheme.typography.titleLarge,
+            textAlign = TextAlign.Center
         )
 
         Spacer(modifier = Modifier.height(16.dp))
 
         Button(
-            onClick = { startGoogleSignIn() },
+            onClick = { startGoogleRegistration() },
             enabled = !isLoading,
             modifier = Modifier.fillMaxWidth()
         ) {
             if (isLoading) {
                 CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
             } else {
-                Text("Accedi con Google")
+                Text("Registrati con Google")
             }
         }
 
         Spacer(modifier = Modifier.height(8.dp))
 
         TextButton(
-            onClick = onNavigateToRegister,
+            onClick = onNavigateToLogin,
             modifier = Modifier.fillMaxWidth()
         ) {
-            Text("Non hai un account? Registrati")
+            Text("Hai già un account? Accedi")
         }
     }
 }

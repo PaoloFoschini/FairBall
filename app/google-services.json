@@ -14,6 +14,14 @@
       },
       "oauth_client": [
         {
+          "client_id": "1008501694911-n086sa2nf9f7gd6gu4b70gq2jjc5mfhd.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.fairball",
+            "certificate_hash": "4eb0d15af600b891a7baea1e642848722e7e8409"
+          }
+        },
+        {
           "client_id": "1008501694911-4grfprp1gt93nbrajp8mg9hbu5d1gejb.apps.googleusercontent.com",
           "client_type": 3
         }

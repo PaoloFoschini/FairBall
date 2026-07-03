@@ -149,12 +149,14 @@ object FirestoreRepository {
         db.collection("users").document(uid).update("photoUrl", photoUrl).await()
     }
 
-    suspend fun updateUserProfile(uid: String, displayName: String, email: String) {
-        db.collection("users").document(uid).update(
-            mapOf(
-                "displayName" to displayName,
-                "email" to email
-            )
-        ).await()
+    suspend fun updateUserProfile(uid: String, displayName: String, email: String, role: String? = null) {
+        val fields = mutableMapOf<String, Any?>(
+            "displayName" to displayName,
+            "email" to email
+        )
+        if (role != null) {
+            fields["role"] = role
+        }
+        db.collection("users").document(uid).update(fields).await()
     }
 }

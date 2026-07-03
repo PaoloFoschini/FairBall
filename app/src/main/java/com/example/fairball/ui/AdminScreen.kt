@@ -12,6 +12,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.example.fairball.data.AppConfig
 import com.example.fairball.data.FirestoreRepository
 import com.example.fairball.model.Match
 import com.example.fairball.model.Team
@@ -23,7 +24,7 @@ import kotlinx.coroutines.launch
 @Composable
 fun AdminScreen(onBack: () -> Unit) {
     var selectedTab by remember { mutableIntStateOf(0) }
-    val tabs = listOf("Partite", "Arbitri")
+    val tabs = listOf("Partite", "Utenti")
 
     Scaffold(
         topBar = {
@@ -49,7 +50,7 @@ fun AdminScreen(onBack: () -> Unit) {
             }
             when (selectedTab) {
                 0 -> MatchManagementList()
-                1 -> RefereeManagementList()
+                1 -> UserManagementList()
             }
         }
     }
@@ -383,16 +384,16 @@ fun AssignRefereeDialog(
 }
 
 @Composable
-fun RefereeManagementList(onViewProfile: ((String) -> Unit)? = null) {
-    val referees by FirestoreRepository.refereesFlow().collectAsState(initial = null)
+fun UserManagementList(onViewProfile: ((String) -> Unit)? = null) {
+    val users by FirestoreRepository.usersFlow().collectAsState(initial = null)
 
     when {
-        referees == null -> {
+        users == null -> {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
         }
-        referees!!.isEmpty() -> {
+        users!!.isEmpty() -> {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text("Nessun arbitro registrato.", color = Color.Gray)
+                Text("Nessun utente registrato.", color = Color.Gray)
             }
         }
         else -> {
@@ -401,10 +402,10 @@ fun RefereeManagementList(onViewProfile: ((String) -> Unit)? = null) {
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 item { Spacer(Modifier.height(8.dp)) }
-                items(referees!!, key = { it.uid }) { referee ->
+                items(users!!, key = { it.uid }) { user ->
                     RefereeAdminCard(
-                        referee = referee,
-                        onViewProfile = onViewProfile?.let { { it(referee.uid) } }
+                        referee = user,
+                        onViewProfile = onViewProfile?.let { { it(user.uid) } }
                     )
                 }
                 item { Spacer(Modifier.height(40.dp)) }
@@ -418,6 +419,7 @@ fun RefereeAdminCard(referee: User, onViewProfile: (() -> Unit)? = null) {
     val scope = rememberCoroutineScope()
     var showDeleteConfirm by remember { mutableStateOf(false) }
     var showEditDialog by remember { mutableStateOf(false) } // <-- Aggiunto lo stato per mostrare il Dialog
+    val isSuperAdmin = referee.uid == AppConfig.SUPERADMIN_UID
 
     Card(modifier = Modifier.fillMaxWidth()) {
         Row(
@@ -427,15 +429,34 @@ fun RefereeAdminCard(referee: User, onViewProfile: (() -> Unit)? = null) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(referee.displayName, style = MaterialTheme.typography.titleMedium)
                 Text(referee.email, style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+                Text(
+                    text = when {
+                        isSuperAdmin -> "Superadmin"
+                        referee.role == "admin" -> "Amministratore"
+                        else -> "Arbitro"
+                    },
+                    style = MaterialTheme.typography.labelSmall,
+                    color = if (referee.role == "admin" || isSuperAdmin) MaterialTheme.colorScheme.primary else Color.Gray
+                )
             }
 
-            // Cambiato il click: ora imposta showEditDialog su true
-            IconButton(onClick = { showEditDialog = true }) {
-                Icon(Icons.Default.Edit, contentDescription = "Modifica profilo", tint = MaterialTheme.colorScheme.primary)
-            }
+            if (isSuperAdmin) {
+                // Il superadmin non può essere modificato né eliminato da nessuno.
+                Icon(
+                    Icons.Default.Lock,
+                    contentDescription = "Account protetto",
+                    tint = Color.Gray,
+                    modifier = Modifier.padding(8.dp)
+                )
+            } else {
+                // Cambiato il click: ora imposta showEditDialog su true
+                IconButton(onClick = { showEditDialog = true }) {
+                    Icon(Icons.Default.Edit, contentDescription = "Modifica profilo", tint = MaterialTheme.colorScheme.primary)
+                }
 
-            IconButton(onClick = { showDeleteConfirm = true }) {
-                Icon(Icons.Default.Delete, contentDescription = "Elimina arbitro", tint = MaterialTheme.colorScheme.error)
+                IconButton(onClick = { showDeleteConfirm = true }) {
+                    Icon(Icons.Default.Delete, contentDescription = "Elimina utente", tint = MaterialTheme.colorScheme.error)
+                }
             }
         }
     }
@@ -445,9 +466,9 @@ fun RefereeAdminCard(referee: User, onViewProfile: (() -> Unit)? = null) {
         RefereeEditDialog(
             referee = referee,
             onDismiss = { showEditDialog = false },
-            onSave = { newName, newEmail ->
+            onSave = { newName, newEmail, newRole ->
                 scope.launch {
-                    FirestoreRepository.updateUserProfile(referee.uid, newName, newEmail)
+                    FirestoreRepository.updateUserProfile(referee.uid, newName, newEmail, newRole)
                     showEditDialog = false
                 }
             }
