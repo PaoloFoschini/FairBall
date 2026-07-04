@@ -10,7 +10,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
-import com.example.fairball.R // Import dell'R del tuo pacchetto
+import com.example.fairball.R
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.launch
@@ -29,8 +29,6 @@ fun LoginScreen(
     fun startGoogleSignIn() {
         scope.launch {
             isLoading = true
-            // filterByAuthorizedAccounts = true: mostriamo solo account Google già usati
-            // in precedenza con questa app, coerente con una schermata di solo LOGIN.
             when (val outcome = signInWithGoogle(context, filterByAuthorizedAccounts = true)) {
                 is GoogleSignInOutcome.Success -> {
                     when (val result = lookupUser(db, outcome.firebaseUser)) {
@@ -38,8 +36,6 @@ fun LoginScreen(
                             onLoginSuccess(result.role, outcome.firebaseUser.uid)
                         }
                         UserLookupResult.NotFound -> {
-                            // Utente autenticato con Google ma senza profilo nel database:
-                            // non lo registriamo automaticamente, lo mandiamo alla registrazione.
                             auth.signOut()
                             Toast.makeText(
                                 context,

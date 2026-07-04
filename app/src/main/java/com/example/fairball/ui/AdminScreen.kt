@@ -299,13 +299,10 @@ fun AssignRefereeDialog(
     val scope = rememberCoroutineScope()
     val allMatches by FirestoreRepository.matchesFlow().collectAsState(initial = emptyList())
 
-    // Filtra gli arbitri in base ai criteri richiesti direttamente dall'oggetto match sincronizzato
     val availableReferees = referees.filter { referee ->
-        // 1. Evita assegnazione contemporanea dello stesso utente come Arbitro e Co-Arbitro
         if (isCoReferee && match.refereeId == referee.uid) return@filter false
         if (!isCoReferee && match.coRefereeId == referee.uid) return@filter false
 
-        // 2. Controllo conflitti orari (stesso giorno e stessa ora di inizio)
         val currentMatchDate = match.scheduledAt?.toFormattedDate()
         val currentMatchTime = match.scheduledAt?.toFormattedTime()
 
@@ -418,7 +415,7 @@ fun UserManagementList(onViewProfile: ((String) -> Unit)? = null) {
 fun RefereeAdminCard(referee: User, onViewProfile: (() -> Unit)? = null) {
     val scope = rememberCoroutineScope()
     var showDeleteConfirm by remember { mutableStateOf(false) }
-    var showEditDialog by remember { mutableStateOf(false) } // <-- Aggiunto lo stato per mostrare il Dialog
+    var showEditDialog by remember { mutableStateOf(false) }
     val isSuperAdmin = referee.uid == AppConfig.SUPERADMIN_UID
 
     Card(modifier = Modifier.fillMaxWidth()) {
@@ -441,7 +438,6 @@ fun RefereeAdminCard(referee: User, onViewProfile: (() -> Unit)? = null) {
             }
 
             if (isSuperAdmin) {
-                // Il superadmin non può essere modificato né eliminato da nessuno.
                 Icon(
                     Icons.Default.Lock,
                     contentDescription = "Account protetto",
@@ -449,7 +445,6 @@ fun RefereeAdminCard(referee: User, onViewProfile: (() -> Unit)? = null) {
                     modifier = Modifier.padding(8.dp)
                 )
             } else {
-                // Cambiato il click: ora imposta showEditDialog su true
                 IconButton(onClick = { showEditDialog = true }) {
                     Icon(Icons.Default.Edit, contentDescription = "Modifica profilo", tint = MaterialTheme.colorScheme.primary)
                 }
@@ -461,7 +456,6 @@ fun RefereeAdminCard(referee: User, onViewProfile: (() -> Unit)? = null) {
         }
     }
 
-    // <-- Inserito il controllo per mostrare il dialogo di modifica
     if (showEditDialog) {
         RefereeEditDialog(
             referee = referee,

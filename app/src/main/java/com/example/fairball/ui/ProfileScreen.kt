@@ -56,7 +56,7 @@ fun ProfileScreen(
     var teams by remember { mutableStateOf<Map<String, String>>(emptyMap()) }
     var isLoading by remember { mutableStateOf(true) }
     var showDeleteConfirm by remember { mutableStateOf(false) }
-    var showEditDialog by remember { mutableStateOf(false) } // Stato per il Dialog di modifica dati
+    var showEditDialog by remember { mutableStateOf(false) }
 
     LaunchedEffect(allUsers, allMatches, allTeams, targetUid) {
         if (allUsers == null || allMatches == null || allTeams == null) return@LaunchedEffect
@@ -112,7 +112,7 @@ fun ProfileScreen(
                         user = user!!,
                         isMyProfile = isMyProfile,
                         onEditPhoto = { imagePickerLauncher.launch("image/*") },
-                        onEditDetails = { showEditDialog = true } // Click per aprire il dialog
+                        onEditDetails = { showEditDialog = true }
                     )
                 }
 
@@ -175,7 +175,6 @@ fun ProfileScreen(
         }
     }
 
-    // Dialog per la modifica di Nome ed Email (Profilo Personale)
     if (showEditDialog && user != null) {
         ProfileEditDialog(
             currentUser = user!!,
@@ -183,20 +182,16 @@ fun ProfileScreen(
             onSave = { newName, newEmail ->
                 scope.launch {
                     try {
-                        // 1. Se stiamo modificando il nostro profilo personale, aggiorniamo anche Firebase Auth
                         if (isMyProfile) {
                             val firebaseUser = auth.currentUser
                             if (firebaseUser != null && firebaseUser.email != newEmail) {
-                                // Nota: Firebase potrebbe richiedere un login recente per cambiare email
                                 firebaseUser.verifyBeforeUpdateEmail(newEmail)
                                 Toast.makeText(context, "Link di verifica inviato alla nuova e-mail", Toast.LENGTH_LONG).show()
                             }
                         }
 
-                        // 2. Aggiorna i dati centralizzati su Firestore tramite il repository esistente
                         FirestoreRepository.updateUserProfile(targetUid, newName, newEmail)
 
-                        // Aggiornamento dello stato locale per riflettere il cambio
                         user = user?.copy(displayName = newName, email = newEmail)
                         showEditDialog = false
                     } catch (e: Exception) {
@@ -239,7 +234,7 @@ fun ProfileHeader(
     user: com.example.fairball.model.User,
     isMyProfile: Boolean,
     onEditPhoto: () -> Unit,
-    onEditDetails: () -> Unit // Aggiunto callback per l'editing testuale
+    onEditDetails: () -> Unit
 ) {
     Column(modifier = Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
         Box(
@@ -271,11 +266,10 @@ fun ProfileHeader(
         }
         Spacer(Modifier.height(12.dp))
 
-        // Sezione nome ed e-mail disposta in una Row per inserire l'icona di modifica
         Row(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.Center,
-            modifier = Modifier.padding(start = if (isMyProfile) 32.dp else 0.dp) // Bilancia visivamente l'icona a destra
+            modifier = Modifier.padding(start = if (isMyProfile) 32.dp else 0.dp)
         ) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(user.displayName, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
@@ -295,7 +289,6 @@ fun ProfileHeader(
     }
 }
 
-// Dialog Component per l'editing delle informazioni testuali
 @Composable
 fun ProfileEditDialog(
     currentUser: com.example.fairball.model.User,
@@ -344,7 +337,6 @@ fun ProfileEditDialog(
 
 @Composable
 fun MatchHistoryItem(match: Match, teams: Map<String, String>, onClick: () -> Unit) {
-    // Il tuo componente esistente rimane invariato...
     Card(
         modifier = Modifier.fillMaxWidth().clickable { onClick() },
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),

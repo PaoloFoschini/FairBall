@@ -30,7 +30,6 @@ import org.osmdroid.views.MapView
 import org.osmdroid.views.overlay.MapEventsOverlay
 import org.osmdroid.views.overlay.Marker
 
-// Centro di default se non abbiamo ancora la posizione GPS (Milano).
 private val DEFAULT_CENTER = GeoPoint(45.4642, 9.1900)
 
 /**
@@ -75,7 +74,6 @@ fun VenueMapView(
         },
         onRelease = { mapView -> mapView.onDetach() },
         update = { mapView ->
-            // Ridisegna tutti i marker degli impianti ad ogni aggiornamento della lista
             mapView.overlays.removeAll { it is Marker }
 
             venues.forEach { venue ->
@@ -91,7 +89,6 @@ fun VenueMapView(
                 mapView.overlays.add(marker)
             }
 
-            // Centriamo sulla posizione utente la prima volta che diventa disponibile
             if (userLocation != null && !hasCentered) {
                 mapView.controller.animateTo(userLocation)
                 mapView.controller.setZoom(15.0)

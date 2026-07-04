@@ -22,7 +22,7 @@ private val ROLE_OPTIONS = listOf(
 fun RefereeEditDialog(
     referee: User,
     onDismiss: () -> Unit,
-    onSave: (String, String, String) -> Unit // displayName, email, role
+    onSave: (String, String, String) -> Unit
 ) {
     var displayName by remember { mutableStateOf(referee.displayName) }
     var email by remember { mutableStateOf(referee.email) }
@@ -30,7 +30,7 @@ fun RefereeEditDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Modifica Profilo Arbitro") },
+        title = { Text("Modifica Profilo") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedTextField(

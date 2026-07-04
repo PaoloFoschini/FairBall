@@ -14,7 +14,6 @@ object FirebaseDataSeeder {
 
         val currentUid = auth.currentUser?.uid
 
-        // 1. SEED UTENTI
         val adminUid = if (currentUid != null && currentUid != "mario_rossi_test_id" && currentUid != "luigi_verdi_test_id") {
             currentUid
         } else {
@@ -51,13 +50,9 @@ object FirebaseDataSeeder {
                 if (!snapshot.exists()) {
                     docRef.set(user)
                 }
-                // Se il documento esiste già, non lo tocchiamo: evitiamo così di
-                // sovrascrivere un ruolo (admin/referee) modificato manualmente
-                // dal pannello di amministrazione ogni volta che l'app viene riavviata.
             }
         }
 
-        // 2. SEED SQUADRE
         val teams = listOf(
             Team(id = "team_a", name = "F.C. Raptors"),
             Team(id = "team_b", name = "Gengis Warriors"),
@@ -71,7 +66,6 @@ object FirebaseDataSeeder {
             db.collection("teams").document(team.id).set(team)
         }
 
-        // 3. SEED IMPIANTI (VENUES)
         val venues = listOf(
             Venue(
                 id = "venue_milan_1",
@@ -103,7 +97,6 @@ object FirebaseDataSeeder {
             db.collection("venues").document(venue.id).set(venue)
         }
 
-        // 4. SEED PARTITE
         val matches = listOf(
             Match(
                 id = "match_finished_1",

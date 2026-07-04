@@ -5,21 +5,29 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.Composable
+import androidx.lifecycle.lifecycleScope
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.example.fairball.data.FirebaseDataSeeder
+import com.example.fairball.data.FirestoreRepository
 import com.example.fairball.ui.*
 import com.example.fairball.ui.theme.FairBallTheme
 import com.google.firebase.FirebaseApp
+import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        FirebaseApp.initializeApp(this)
-        FirebaseDataSeeder.seedData()
+
+        try {
+            FirebaseApp.initializeApp(this)
+            FirebaseDataSeeder.seedData()
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
 
         enableEdgeToEdge()
         setContent {
@@ -73,9 +81,6 @@ fun FairBallApp() {
             val role = backStackEntry.arguments?.getString("role") ?: "referee"
             val uid = backStackEntry.arguments?.getString("uid")
 
-            // CORREZIONE: Facciamo caricare la HomeScreen anche all'admin.
-            // All'interno di HomeScreen (usando la variabile role) l'interfaccia mostrerà
-            // i tasti dell'admin o la lista delle partite da approvare, mantenendo la TopBar con l'icona del profilo.
             HomeScreen(
                 role = role,
                 debugUid = uid,
@@ -139,7 +144,7 @@ fun FairBallApp() {
             MatchSummaryScreen(
                 matchId = matchId,
                 onFinish = {
-                    navController.popBackStack("home/{role}?uid={uid}", inclusive = false)
+                    navController.popBackStack()
                 },
                 onBack = { navController.popBackStack() }
             )
@@ -155,11 +160,6 @@ fun FairBallApp() {
                     navController.popBackStack()
                 }
             )
-        }
-
-        // Mantieni la rotta se in altre parti del codice viene espressamente usata l'AdminScreen autonoma
-        composable("admin_screen") {
-            AdminScreen(onBack = { navController.popBackStack() })
         }
     }
 }

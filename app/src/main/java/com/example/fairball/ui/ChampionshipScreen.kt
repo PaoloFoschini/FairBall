@@ -26,7 +26,6 @@ fun ChampionshipScreen(
     var allUsers by remember { mutableStateOf<Map<String, String>>(emptyMap()) }
     var allTeams by remember { mutableStateOf<Map<String, String>>(emptyMap()) }
 
-    // null finché non arriva il primo snapshot: distingue "sto caricando" da "0 partite"
     val allMatches by remember { FirestoreRepository.matchesFlow() }.collectAsState(initial = null)
     val isLoading = allMatches == null
     val pastMatches = remember(allMatches) {

@@ -30,13 +30,10 @@ fun RegisterScreen(
     fun startGoogleRegistration() {
         scope.launch {
             isLoading = true
-            // filterByAuthorizedAccounts = false: mostriamo tutti gli account Google presenti
-            // sul dispositivo, perché l'utente potrebbe non aver mai usato l'app prima.
             when (val outcome = signInWithGoogle(context, filterByAuthorizedAccounts = false)) {
                 is GoogleSignInOutcome.Success -> {
                     when (lookupUser(db, outcome.firebaseUser)) {
                         is UserLookupResult.Found -> {
-                            // Esiste già un profilo per questo account: niente doppia registrazione.
                             auth.signOut()
                             Toast.makeText(
                                 context,

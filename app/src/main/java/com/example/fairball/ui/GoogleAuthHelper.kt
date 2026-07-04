@@ -15,7 +15,6 @@ import com.google.firebase.auth.GoogleAuthProvider
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.tasks.await
 
-// Web Client ID (lo stesso già usato in precedenza con requestIdToken)
 private const val WEB_CLIENT_ID = "1008501694911-4grfprp1gt93nbrajp8mg9hbu5d1gejb.apps.googleusercontent.com"
 
 sealed class GoogleSignInOutcome {
@@ -73,9 +72,11 @@ suspend fun signInWithGoogle(
     } catch (e: GoogleIdTokenParsingException) {
         GoogleSignInOutcome.Error("Errore nel parsing del token Google")
     } catch (e: NoCredentialException) {
-        // Nessuna credenziale Google trovata. Con filterByAuthorizedAccounts=true significa
-        // "nessun account già usato con questa app"; con filterByAuthorizedAccounts=false
-        // significa "nessun account Google presente sul dispositivo" (Impostazioni > Account).
+        /**
+         * Nessuna credenziale Google trovata. Con filterByAuthorizedAccounts=true significa
+         * "nessun account già usato con questa app"; con filterByAuthorizedAccounts=false
+         * significa "nessun account Google presente sul dispositivo" (Impostazioni > Account)
+         */
         android.util.Log.e("GoogleAuthHelper", "NoCredentialException: ${e.message}", e)
         GoogleSignInOutcome.NoCredential
     } catch (e: GetCredentialException) {

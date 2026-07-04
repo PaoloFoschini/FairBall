@@ -49,8 +49,8 @@ fun MapScreen(
         }
     ) { padding ->
         if (venues == null) {
-            // caricamento
-            Surface(modifier = Modifier.fillMaxSize().padding(padding)) { /* spinner */ }
+
+            Surface(modifier = Modifier.fillMaxSize().padding(padding)){}
         } else {
             VenueMapView(
                 modifier = Modifier.fillMaxSize().padding(padding),

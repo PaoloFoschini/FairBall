@@ -1,8 +1,11 @@
 package com.example.fairball.ui
 
+import android.graphics.Bitmap
 import android.net.Uri
+import android.provider.MediaStore
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.activity.result.launch
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -16,10 +19,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.example.fairball.data.FirestoreRepository
 import kotlinx.coroutines.launch
+import java.io.ByteArrayOutputStream
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -28,7 +34,9 @@ fun MatchSummaryScreen(
     onFinish: () -> Unit,
     onBack: () -> Unit
 ) {
+    val context = LocalContext.current
     val scope = rememberCoroutineScope()
+
     var photoDistintaA by remember { mutableStateOf<Uri?>(null) }
     var photoDistintaB by remember { mutableStateOf<Uri?>(null) }
     var photoReferto by remember { mutableStateOf<Uri?>(null) }
@@ -42,6 +50,21 @@ fun MatchSummaryScreen(
                 "A" -> photoDistintaA = it
                 "B" -> photoDistintaB = it
                 "Referto" -> photoReferto = it
+            }
+        }
+        showPickerFor = null
+    }
+
+    val cameraLauncher = rememberLauncherForActivityResult(ActivityResultContracts.TakePicturePreview()) { bitmap ->
+        bitmap?.let {
+            val bytes = ByteArrayOutputStream()
+            it.compress(Bitmap.CompressFormat.JPEG, 100, bytes)
+            val path = MediaStore.Images.Media.insertImage(context.contentResolver, it, "MatchDoc_${System.currentTimeMillis()}", null)
+            val uri = Uri.parse(path)
+            when (showPickerFor) {
+                "A" -> photoDistintaA = uri
+                "B" -> photoDistintaB = uri
+                "Referto" -> photoReferto = uri
             }
         }
         showPickerFor = null
@@ -64,28 +87,16 @@ fun MatchSummaryScreen(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            Text("Allega i documenti ufficiali", style = MaterialTheme.typography.titleLarge)
+            Text("Allega i documenti ufficiali", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
             Text(
                 "Le immagini verranno inviate all'amministratore per la verifica finale.",
                 style = MaterialTheme.typography.bodySmall,
                 color = Color.Gray
             )
 
-            PhotoUploadSection(
-                label = "Distinta Casa",
-                imageUri = photoDistintaA,
-                onUploadClick = { showPickerFor = "A" }
-            )
-            PhotoUploadSection(
-                label = "Distinta Ospiti",
-                imageUri = photoDistintaB,
-                onUploadClick = { showPickerFor = "B" }
-            )
-            PhotoUploadSection(
-                label = "Referto Gara",
-                imageUri = photoReferto,
-                onUploadClick = { showPickerFor = "Referto" }
-            )
+            PhotoUploadSection(label = "Distinta Casa", imageUri = photoDistintaA, onUploadClick = { showPickerFor = "A" })
+            PhotoUploadSection(label = "Distinta Ospiti", imageUri = photoDistintaB, onUploadClick = { showPickerFor = "B" })
+            PhotoUploadSection(label = "Referto Gara", imageUri = photoReferto, onUploadClick = { showPickerFor = "Referto" })
 
             Spacer(Modifier.height(24.dp))
 
@@ -117,15 +128,21 @@ fun MatchSummaryScreen(
     if (showPickerFor != null) {
         ModalBottomSheet(onDismissRequest = { showPickerFor = null }) {
             Column(modifier = Modifier.padding(16.dp).fillMaxWidth()) {
-                Text("Seleziona Sorgente", style = MaterialTheme.typography.titleMedium)
+                Text("Seleziona Sorgente", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                 Spacer(Modifier.height(16.dp))
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.clickable { galleryLauncher.launch("image/*") }) {
-                        Icon(Icons.Default.PhotoLibrary, null, modifier = Modifier.size(48.dp))
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier.clickable { galleryLauncher.launch("image/*") }
+                    ) {
+                        Icon(Icons.Default.PhotoLibrary, null, modifier = Modifier.size(48.dp), tint = MaterialTheme.colorScheme.primary)
                         Text("Galleria")
                     }
-                    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.clickable { galleryLauncher.launch("image/*") }) {
-                        Icon(Icons.Default.CameraAlt, null, modifier = Modifier.size(48.dp))
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier.clickable { cameraLauncher.launch() }
+                    ) {
+                        Icon(Icons.Default.CameraAlt, null, modifier = Modifier.size(48.dp), tint = MaterialTheme.colorScheme.primary)
                         Text("Fotocamera")
                     }
                 }
