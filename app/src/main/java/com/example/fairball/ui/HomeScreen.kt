@@ -55,7 +55,9 @@ fun HomeScreen(
             TopAppBar(
                 title = { Text("FairBall") },
                 navigationIcon = {
-                    IconButton(onClick = onViewReferees) { Icon(Icons.Default.Sports, "Arbitri") }
+                    if (role == "admin") {
+                        IconButton(onClick = onViewReferees) { Icon(Icons.Default.Sports, "Arbitri") }
+                    }
                 },
                 actions = {
                     IconButton(onClick = onViewMap) { Icon(Icons.Default.Map, "Mappa") }

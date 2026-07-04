@@ -1,9 +1,13 @@
 package com.example.fairball.ui
 
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Place
+import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -14,6 +18,10 @@ import com.example.fairball.model.Match
 import com.example.fairball.model.Team
 import com.example.fairball.model.Venue
 import com.google.firebase.Timestamp
+import java.text.SimpleDateFormat
+import java.util.Calendar
+import java.util.Locale
+import java.util.TimeZone
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -37,6 +45,30 @@ fun MatchEditDialog(
     var homeScoreStr by remember { mutableStateOf(match?.homeScore?.toString() ?: "0") }
     var awayScoreStr by remember { mutableStateOf(match?.awayScore?.toString() ?: "0") }
 
+    val initialCalendar = remember {
+        Calendar.getInstance().apply {
+            match?.scheduledAt?.toDate()?.let { time = it }
+        }
+    }
+
+    var selectedDateMillis by remember {
+        mutableStateOf(
+            Calendar.getInstance(TimeZone.getTimeZone("UTC")).apply {
+                set(Calendar.YEAR, initialCalendar.get(Calendar.YEAR))
+                set(Calendar.MONTH, initialCalendar.get(Calendar.MONTH))
+                set(Calendar.DAY_OF_MONTH, initialCalendar.get(Calendar.DAY_OF_MONTH))
+                set(Calendar.HOUR_OF_DAY, 0)
+                set(Calendar.MINUTE, 0)
+                set(Calendar.SECOND, 0)
+                set(Calendar.MILLISECOND, 0)
+            }.timeInMillis
+        )
+    }
+    var selectedHour by remember { mutableStateOf(initialCalendar.get(Calendar.HOUR_OF_DAY)) }
+    var selectedMinute by remember { mutableStateOf(initialCalendar.get(Calendar.MINUTE)) }
+    var showDatePicker by remember { mutableStateOf(false) }
+    var showTimePicker by remember { mutableStateOf(false) }
+
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(if (isEditing) "Modifica Partita" else "Nuova Partita") },
@@ -51,6 +83,30 @@ fun MatchEditDialog(
                     )
                 }
                 item {
+                    Text("Data e Ora:", style = MaterialTheme.typography.labelMedium)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        OutlinedButton(
+                            onClick = { showDatePicker = true },
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Icon(Icons.Default.CalendarMonth, null, Modifier.size(16.dp))
+                            Spacer(Modifier.width(8.dp))
+                            Text(formatSelectedDate(selectedDateMillis))
+                        }
+                        OutlinedButton(
+                            onClick = { showTimePicker = true },
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Icon(Icons.Default.Schedule, null, Modifier.size(16.dp))
+                            Spacer(Modifier.width(8.dp))
+                            Text(String.format(Locale.ITALY, "%02d:%02d", selectedHour, selectedMinute))
+                        }
+                    }
+                }
+                item {
                     Text("Impianto:", style = MaterialTheme.typography.labelMedium)
                     OutlinedButton(
                         onClick = { showVenuePicker = true },
@@ -63,7 +119,10 @@ fun MatchEditDialog(
                 }
                 item {
                     Text("Categoria:", style = MaterialTheme.typography.labelMedium)
-                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
                         listOf("Maschile", "Femminile", "Misto").forEach { cat ->
                             FilterChip(
                                 selected = category == cat,
@@ -75,7 +134,10 @@ fun MatchEditDialog(
                 }
                 item {
                     Text("Fase:", style = MaterialTheme.typography.labelMedium)
-                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
                         listOf("Regular Season", "Semifinale", "Finale").forEach { p ->
                             FilterChip(
                                 selected = phase == p,
@@ -119,6 +181,19 @@ fun MatchEditDialog(
         },
         confirmButton = {
             Button(onClick = {
+                val utcDate = Calendar.getInstance(TimeZone.getTimeZone("UTC")).apply {
+                    timeInMillis = selectedDateMillis
+                }
+                val finalCalendar = Calendar.getInstance().apply {
+                    set(Calendar.YEAR, utcDate.get(Calendar.YEAR))
+                    set(Calendar.MONTH, utcDate.get(Calendar.MONTH))
+                    set(Calendar.DAY_OF_MONTH, utcDate.get(Calendar.DAY_OF_MONTH))
+                    set(Calendar.HOUR_OF_DAY, selectedHour)
+                    set(Calendar.MINUTE, selectedMinute)
+                    set(Calendar.SECOND, 0)
+                    set(Calendar.MILLISECOND, 0)
+                }
+
                 val newMatch = (match ?: defaultMatch).copy(
                     code = code,
                     category = category,
@@ -128,7 +203,7 @@ fun MatchEditDialog(
                     awayTeamId = awayTeamId,
                     homeScore = homeScoreStr.toIntOrNull() ?: match?.homeScore ?: 0,
                     awayScore = awayScoreStr.toIntOrNull() ?: match?.awayScore ?: 0,
-                    scheduledAt = match?.scheduledAt ?: Timestamp.now()
+                    scheduledAt = Timestamp(finalCalendar.time)
                 )
                 onSave(newMatch)
             }) { Text("Salva") }
@@ -137,6 +212,51 @@ fun MatchEditDialog(
             TextButton(onClick = onDismiss) { Text("Annulla") }
         }
     )
+
+    if (showDatePicker) {
+        val datePickerState = rememberDatePickerState(initialSelectedDateMillis = selectedDateMillis)
+        DatePickerDialog(
+            onDismissRequest = { showDatePicker = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    datePickerState.selectedDateMillis?.let { selectedDateMillis = it }
+                    showDatePicker = false
+                }) { Text("OK") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDatePicker = false }) { Text("Annulla") }
+            }
+        ) {
+            DatePicker(state = datePickerState)
+        }
+    }
+
+    if (showTimePicker) {
+        val timePickerState = rememberTimePickerState(
+            initialHour = selectedHour,
+            initialMinute = selectedMinute,
+            is24Hour = true
+        )
+        AlertDialog(
+            onDismissRequest = { showTimePicker = false },
+            title = { Text("Seleziona Ora") },
+            text = {
+                Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                    TimePicker(state = timePickerState)
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    selectedHour = timePickerState.hour
+                    selectedMinute = timePickerState.minute
+                    showTimePicker = false
+                }) { Text("OK") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showTimePicker = false }) { Text("Annulla") }
+            }
+        )
+    }
 
     if (showVenuePicker) {
         VenuePickerDialog(
@@ -171,4 +291,10 @@ fun TeamDropdown(teams: List<Team>, selectedId: String, onSelect: (String) -> Un
             }
         }
     }
+}
+
+private fun formatSelectedDate(utcMillis: Long): String {
+    val sdf = SimpleDateFormat("dd/MM/yyyy", Locale.ITALY)
+    sdf.timeZone = TimeZone.getTimeZone("UTC")
+    return sdf.format(java.util.Date(utcMillis))
 }

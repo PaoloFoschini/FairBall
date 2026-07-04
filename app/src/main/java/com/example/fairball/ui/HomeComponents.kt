@@ -1,6 +1,7 @@
 package com.example.fairball.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -17,6 +18,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
 import coil.compose.AsyncImage
 import com.example.fairball.data.FirestoreRepository
 import com.example.fairball.model.Match
@@ -135,6 +137,7 @@ fun MatchApprovalCard(match: Match, referees: List<User>, teams: List<Team>) {
     var showDocs by remember { mutableStateOf(false) }
     var showRejectDialog by remember { mutableStateOf(false) }
     var rejectionComment by remember { mutableStateOf("") }
+    var enlargedImage by remember { mutableStateOf<String?>(null) }
 
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp)) {
@@ -145,23 +148,34 @@ fun MatchApprovalCard(match: Match, referees: List<User>, teams: List<Team>) {
                     Text("$homeName ${match.homeScore} - ${match.awayScore} $awayName", fontWeight = FontWeight.Bold)
                     Text("Arbitro: ${referees.find { it.uid == match.refereeId }?.displayName ?: "Sconosciuto"}", style = MaterialTheme.typography.bodySmall)
                 }
-                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Button(onClick = {
-                        scope.launch { FirestoreRepository.approveMatch(match.id) }
-                    }) { Text("Approva") }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    FilledIconButton(
+                        onClick = {
+                            scope.launch { FirestoreRepository.approveMatch(match.id) }
+                        },
+                        colors = IconButtonDefaults.filledIconButtonColors(
+                            containerColor = MaterialTheme.colorScheme.primary
+                        )
+                    ) {
+                        Icon(Icons.Default.Check, contentDescription = "Approva")
+                    }
 
-                    Button(
+                    FilledIconButton(
                         onClick = { showRejectDialog = true },
-                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
-                    ) { Text("Rifiuta") }
+                        colors = IconButtonDefaults.filledIconButtonColors(
+                            containerColor = MaterialTheme.colorScheme.error
+                        )
+                    ) {
+                        Icon(Icons.Default.Close, contentDescription = "Rifiuta")
+                    }
                 }
             }
             TextButton(onClick = { showDocs = !showDocs }) { Text(if (showDocs) "Nascondi Documenti" else "Verifica Documenti") }
             if (showDocs) {
                 Row(modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    DocMiniPreview(match.photoDistintaA, "Distinta Casa")
-                    DocMiniPreview(match.photoDistintaB, "Distinta Ospiti")
-                    DocMiniPreview(match.photoReferto, "Referto")
+                    DocMiniPreview(match.photoDistintaA, "Distinta Casa", onClick = { enlargedImage = it })
+                    DocMiniPreview(match.photoDistintaB, "Distinta Ospiti", onClick = { enlargedImage = it })
+                    DocMiniPreview(match.photoReferto, "Referto", onClick = { enlargedImage = it })
                 }
             }
         }
@@ -196,6 +210,32 @@ fun MatchApprovalCard(match: Match, referees: List<User>, teams: List<Team>) {
                 TextButton(onClick = { showRejectDialog = false }) { Text("Annulla") }
             }
         )
+    }
+
+    if (enlargedImage != null) {
+        Dialog(onDismissRequest = { enlargedImage = null }) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .aspectRatio(1f)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(Color.Black),
+                contentAlignment = Alignment.Center
+            ) {
+                AsyncImage(
+                    model = enlargedImage,
+                    contentDescription = "Documento ingrandito",
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Fit
+                )
+                IconButton(
+                    onClick = { enlargedImage = null },
+                    modifier = Modifier.align(Alignment.TopEnd).padding(8.dp)
+                ) {
+                    Icon(Icons.Default.Close, contentDescription = "Chiudi", tint = Color.White)
+                }
+            }
+        }
     }
 }
 
@@ -285,14 +325,18 @@ fun HomeMatchAdminCard(match: Match, referees: List<User>, teams: List<Team>, ve
 }
 
 @Composable
-fun DocMiniPreview(uri: String?, label: String) {
+fun DocMiniPreview(uri: String?, label: String, onClick: ((String) -> Unit)? = null) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Text(label, fontSize = 10.sp, color = Color.Gray)
         if (!uri.isNullOrEmpty() && uri != "null") {
             AsyncImage(
                 model = uri,
                 contentDescription = null,
-                modifier = Modifier.size(100.dp).clip(RoundedCornerShape(8.dp)).background(Color.Black),
+                modifier = Modifier
+                    .size(100.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(Color.Black)
+                    .let { base -> if (onClick != null) base.clickable { onClick(uri) } else base },
                 contentScale = ContentScale.Crop
             )
         } else {

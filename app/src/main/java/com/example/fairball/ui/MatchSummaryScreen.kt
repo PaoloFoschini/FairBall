@@ -114,6 +114,7 @@ fun MatchSummaryScreen(
                                 photoReferto?.toString()
                             )
                             onFinish()
+                            onFinish()
                         }
                     },
                     modifier = Modifier.fillMaxWidth(),
