@@ -4,19 +4,36 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.*
 import androidx.compose.runtime.key
+import androidx.lifecycle.Lifecycle
+import androidx.navigation.NavController
+import androidx.navigation.NavOptionsBuilder
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.example.fairball.data.DataStoreManager
+import com.example.fairball.data.ThemePreference
 import com.example.fairball.data.FirebaseDataSeeder
 import com.example.fairball.ui.*
 import com.example.fairball.ui.theme.FairBallTheme
 import com.google.firebase.FirebaseApp
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
 
+private fun NavController.navigateSafe(route: String, builder: NavOptionsBuilder.() -> Unit = {}) {
+    if (currentBackStackEntry?.lifecycle?.currentState == Lifecycle.State.RESUMED) {
+        navigate(route, builder)
+    }
+}
+
+private fun NavController.popBackStackSafe() {
+    if (currentBackStackEntry?.lifecycle?.currentState == Lifecycle.State.RESUMED) {
+        popBackStack()
+    }
+}
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -30,16 +47,35 @@ class MainActivity : ComponentActivity() {
         }
 
         enableEdgeToEdge()
+        val dataStoreManager = DataStoreManager(this)
+
         setContent {
-            FairBallTheme {
-                FairBallApp()
+            val themePreference by dataStoreManager.themePreferenceFlow.collectAsState(initial = ThemePreference.SYSTEM)
+
+            val scope = rememberCoroutineScope()
+
+            FairBallTheme(
+                themePreference = themePreference,
+                dynamicColor = true
+            ) {
+                FairBallApp(
+                    currentTheme = themePreference,
+                    onThemeChange = { newTheme ->
+                        scope.launch {
+                            dataStoreManager.saveThemePreference(newTheme)
+                        }
+                    }
+                )
             }
         }
     }
 }
 
 @Composable
-fun FairBallApp() {
+fun FairBallApp(
+    currentTheme: ThemePreference,
+    onThemeChange: (ThemePreference) -> Unit
+) {
     val navController = rememberNavController()
 
     key(Session.uid, Session.role) {
@@ -51,12 +87,12 @@ fun FairBallApp() {
                         Session.role = role
 
                         val destination = if (uid != null) "home/$role?uid=$uid" else "home/$role"
-                        navController.navigate(destination) {
+                        navController.navigateSafe(destination) {
                             popUpTo(navController.graph.id) { inclusive = true }
                             launchSingleTop = true
                         }
                     },
-                    onNavigateToRegister = { navController.navigate("register") }
+                    onNavigateToRegister = { navController.navigateSafe("register") }
                 )
             }
             composable("register") {
@@ -66,12 +102,12 @@ fun FairBallApp() {
                         Session.role = role
 
                         val destination = if (uid != null) "home/$role?uid=$uid" else "home/$role"
-                        navController.navigate(destination) {
+                        navController.navigateSafe(destination) {
                             popUpTo(navController.graph.id) { inclusive = true }
                             launchSingleTop = true
                         }
                     },
-                    onNavigateToLogin = { navController.popBackStack() }
+                    onNavigateToLogin = { navController.popBackStackSafe() }
                 )
             }
             composable(
@@ -84,7 +120,7 @@ fun FairBallApp() {
                 val currentRole = Session.role
                 if (currentRole == null) {
                     LaunchedEffect(Unit) {
-                        navController.navigate("login") {
+                        navController.navigateSafe("login") {
                             popUpTo(navController.graph.id) { inclusive = true }
                             launchSingleTop = true
                         }
@@ -96,25 +132,19 @@ fun FairBallApp() {
                     role = currentRole,
                     debugUid = Session.uid,
                     onViewReferees = {
-                        if (currentRole == "admin") {
-                            navController.navigate("league_referees")
-                        }
+                        navController.navigateSafe("league_referees") { launchSingleTop = true }
                     },
-                    onViewProfile = { navController.navigate("profile") },
-                    onViewRefereeProfile = { refereeId -> navController.navigate("profile?uid=$refereeId") },
-                    onViewChampionship = { navController.navigate("championship") },
-                    onViewMap = { navController.navigate("map") },
-                    onArbitrateMatch = { matchId -> navController.navigate("match_referee/$matchId") }
+                    onViewProfile = { navController.navigateSafe("profile") { launchSingleTop = true } },
+                    onViewRefereeProfile = { refereeId -> navController.navigateSafe("profile?uid=$refereeId") },
+                    onViewChampionship = { navController.navigateSafe("championship") { launchSingleTop = true } },
+                    onViewMap = { navController.navigateSafe("map") { launchSingleTop = true } },
+                    onArbitrateMatch = { matchId -> navController.navigateSafe("match_referee/$matchId") }
                 )
             }
             composable("league_referees") {
-                if (Session.role != "admin") {
-                    LaunchedEffect(Unit) { navController.popBackStack() }
-                    return@composable
-                }
                 LeagueRefereesScreen(
-                    onBack = { navController.popBackStack() },
-                    onRefereeClick = { refereeId -> navController.navigate("profile?uid=$refereeId") }
+                    onBack = { navController.popBackStackSafe() },
+                    onRefereeClick = { refereeId -> navController.navigateSafe("profile?uid=$refereeId") }
                 )
             }
             composable(
@@ -126,26 +156,28 @@ fun FairBallApp() {
                 val uid = backStackEntry.arguments?.getString("uid")
                 ProfileScreen(
                     refereeId = uid,
-                    onBack = { navController.popBackStack() },
-                    onViewMatchReport = { matchId -> navController.navigate("match_report/$matchId") },
+                    onBack = { navController.popBackStackSafe() },
+                    onViewMatchReport = { matchId -> navController.navigateSafe("match_report/$matchId") },
                     onLogoutSuccess = {
                         Session.uid = null
                         Session.role = null
-                        navController.navigate("login") {
+                        navController.navigateSafe("login") {
                             popUpTo(navController.graph.id) { inclusive = true }
                             launchSingleTop = true
                         }
-                    }
+                    },
+                    currentTheme = currentTheme,
+                    onThemeChange = onThemeChange
                 )
             }
             composable("championship") {
                 ChampionshipScreen(
-                    onBack = { navController.popBackStack() },
-                    onViewReport = { matchId -> navController.navigate("match_report/$matchId") }
+                    onBack = { navController.popBackStackSafe() },
+                    onViewReport = { matchId -> navController.navigateSafe("match_report/$matchId") }
                 )
             }
             composable("map") {
-                MapScreen(onBack = { navController.popBackStack() })
+                MapScreen(onBack = { navController.popBackStackSafe() })
             }
             composable(
                 route = "match_referee/{matchId}",
@@ -154,8 +186,8 @@ fun FairBallApp() {
                 val matchId = backStackEntry.arguments?.getString("matchId") ?: ""
                 MatchRefereeScreen(
                     matchId = matchId,
-                    onBack = { navController.popBackStack() },
-                    onEndMatch = { id -> navController.navigate("match_summary/$id") }
+                    onBack = { navController.popBackStackSafe() },
+                    onEndMatch = { id -> navController.navigateSafe("match_summary/$id") }
                 )
             }
             composable(
@@ -166,9 +198,9 @@ fun FairBallApp() {
                 MatchSummaryScreen(
                     matchId = matchId,
                     onFinish = {
-                        navController.popBackStack()
+                        navController.popBackStackSafe()
                     },
-                    onBack = { navController.popBackStack() }
+                    onBack = { navController.popBackStackSafe() }
                 )
             }
             composable(
@@ -179,7 +211,7 @@ fun FairBallApp() {
                 MatchReportScreen(
                     matchId = matchId,
                     onClose = {
-                        navController.popBackStack()
+                        navController.popBackStackSafe()
                     }
                 )
             }

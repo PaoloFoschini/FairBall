@@ -28,6 +28,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.example.fairball.data.FirestoreRepository
+import com.example.fairball.data.ThemePreference
 import com.example.fairball.model.Match
 import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.launch
@@ -38,7 +39,9 @@ fun ProfileScreen(
     refereeId: String?,
     onBack: () -> Unit,
     onViewMatchReport: (String) -> Unit,
-    onLogoutSuccess: () -> Unit
+    onLogoutSuccess: () -> Unit,
+    currentTheme: ThemePreference,
+    onThemeChange: (ThemePreference) -> Unit
 ) {
     val auth = FirebaseAuth.getInstance()
     val scope = rememberCoroutineScope()
@@ -141,9 +144,42 @@ fun ProfileScreen(
 
                 if (isMyProfile) {
                     item {
+                        Text("Impostazioni Tema", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                        Spacer(Modifier.height(8.dp))
+                        Column {
+                            listOf(
+                                ThemePreference.SYSTEM to "Sistema (segue dispositivo)",
+                                ThemePreference.LIGHT to "Chiaro",
+                                ThemePreference.DARK to "Scuro",
+                                ThemePreference.CUSTOM to "Personalizzato (verde/arancio)"
+                            ).forEach { (pref, label) ->
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clickable { onThemeChange(pref) }
+                                        .padding(vertical = 4.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    RadioButton(
+                                        selected = currentTheme == pref,
+                                        onClick = { onThemeChange(pref) }
+                                    )
+                                    Text(
+                                        text = label,
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        modifier = Modifier.padding(start = 8.dp)
+                                    )
+                                }
+                            }
+                        }
                         Spacer(Modifier.height(16.dp))
                         HorizontalDivider()
                         Spacer(Modifier.height(16.dp))
+                    }
+                }
+
+                if (isMyProfile) {
+                    item {
                         Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                             Button(
                                 onClick = {

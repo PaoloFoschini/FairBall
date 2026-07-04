@@ -35,7 +35,6 @@ fun MatchEditDialog(
     val isEditing = match?.id?.isNotEmpty() == true
     val defaultMatch = Match()
 
-    var code by remember { mutableStateOf(match?.code ?: "") }
     var category by remember { mutableStateOf(match?.category?.ifEmpty { "Maschile" } ?: "Maschile") }
     var phase by remember { mutableStateOf(match?.phase?.ifEmpty { "Regular Season" } ?: "Regular Season") }
     var selectedVenue by remember { mutableStateOf(venues.find { it.id == match?.venueId }) }
@@ -44,6 +43,8 @@ fun MatchEditDialog(
     var awayTeamId by remember { mutableStateOf(match?.awayTeamId ?: "") }
     var homeScoreStr by remember { mutableStateOf(match?.homeScore?.toString() ?: "0") }
     var awayScoreStr by remember { mutableStateOf(match?.awayScore?.toString() ?: "0") }
+
+    var errorMessage by remember { mutableStateOf<String?>(null) }
 
     val initialCalendar = remember {
         Calendar.getInstance().apply {
@@ -74,13 +75,14 @@ fun MatchEditDialog(
         title = { Text(if (isEditing) "Modifica Partita" else "Nuova Partita") },
         text = {
             LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                item {
-                    OutlinedTextField(
-                        value = code,
-                        onValueChange = { code = it },
-                        label = { Text("Codice Gara") },
-                        modifier = Modifier.fillMaxWidth()
-                    )
+                if (errorMessage != null) {
+                    item {
+                        Text(
+                            text = errorMessage!!,
+                            color = MaterialTheme.colorScheme.error,
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                    }
                 }
                 item {
                     Text("Data e Ora:", style = MaterialTheme.typography.labelMedium)
@@ -181,6 +183,21 @@ fun MatchEditDialog(
         },
         confirmButton = {
             Button(onClick = {
+                val errors = mutableListOf<String>()
+                if (homeTeamId.isBlank()) errors.add("Squadra casa")
+                if (awayTeamId.isBlank()) errors.add("Squadra ospiti")
+                if (selectedVenue == null) errors.add("Impianto")
+                if (category.isBlank()) errors.add("Categoria")
+                if (phase.isBlank()) errors.add("Fase")
+                if (selectedDateMillis == 0L) errors.add("Data")
+
+                if (errors.isNotEmpty()) {
+                    errorMessage = "Campi obbligatori mancanti: ${errors.joinToString(", ")}"
+                    return@Button
+                }
+
+                errorMessage = null
+
                 val utcDate = Calendar.getInstance(TimeZone.getTimeZone("UTC")).apply {
                     timeInMillis = selectedDateMillis
                 }
@@ -195,7 +212,7 @@ fun MatchEditDialog(
                 }
 
                 val newMatch = (match ?: defaultMatch).copy(
-                    code = code,
+                    code = "",
                     category = category,
                     phase = phase,
                     venueId = selectedVenue?.id ?: match?.venueId ?: "",

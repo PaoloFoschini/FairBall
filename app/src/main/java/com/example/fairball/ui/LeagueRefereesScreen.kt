@@ -15,11 +15,17 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.fairball.data.FirestoreRepository
 import com.example.fairball.model.Match
 import com.example.fairball.model.User
+
+private enum class RefereeSortOrder(val label: String) {
+    MATCHES("Più partite"),
+    NAME("Nome A-Z")
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -32,6 +38,10 @@ fun LeagueRefereesScreen(
     var isLoading by remember { mutableStateOf(true) }
     var refereeStats by remember { mutableStateOf<List<RefereeStat>>(emptyList()) }
 
+    var searchQuery by remember { mutableStateOf("") }
+    var sortOrder by remember { mutableStateOf(RefereeSortOrder.MATCHES) }
+    var onlyWithBadges by remember { mutableStateOf(false) }
+
     LaunchedEffect(allReferees, allMatches) {
         if (allReferees != null && allMatches != null) {
             refereeStats = allReferees!!.map { referee ->
@@ -40,6 +50,16 @@ fun LeagueRefereesScreen(
             isLoading = false
         }
     }
+
+    val filteredStats = refereeStats
+        .filter { searchQuery.isBlank() || it.user.displayName.contains(searchQuery, ignoreCase = true) }
+        .filter { !onlyWithBadges || it.badges.any { badge -> badge.isUnlocked } }
+        .let { list ->
+            when (sortOrder) {
+                RefereeSortOrder.MATCHES -> list.sortedByDescending { it.matchCount }
+                RefereeSortOrder.NAME -> list.sortedBy { it.user.displayName.lowercase() }
+            }
+        }
 
     Scaffold(
         topBar = {
@@ -58,13 +78,45 @@ fun LeagueRefereesScreen(
                 CircularProgressIndicator()
             }
         } else {
-            LazyColumn(
-                modifier = Modifier.fillMaxSize().padding(padding).padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                item { Text("Hall of Fame", style = MaterialTheme.typography.headlineSmall) }
-                items(refereeStats) { stat ->
-                    RefereeStatCard(stat, onClick = { onRefereeClick(stat.user.uid) })
+            Column(modifier = Modifier.fillMaxSize().padding(padding).padding(16.dp)) {
+                Text("Hall of Fame", style = MaterialTheme.typography.headlineSmall)
+                Spacer(Modifier.height(12.dp))
+
+                SearchField(searchQuery, { searchQuery = it }, "Cerca arbitro per nome")
+                Spacer(Modifier.height(6.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    RefereeSortOrder.values().forEach { order ->
+                        CompactFilterChip(order.label, sortOrder == order) { sortOrder = order }
+                    }
+                    Box(
+                        modifier = Modifier
+                            .width(1.dp)
+                            .height(18.dp)
+                            .background(MaterialTheme.colorScheme.outlineVariant)
+                    )
+                    CompactFilterChip("Solo con badge", onlyWithBadges) { onlyWithBadges = !onlyWithBadges }
+                }
+                Spacer(Modifier.height(8.dp))
+
+                if (filteredStats.isEmpty()) {
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Text("Nessun arbitro trovato.", color = Color.Gray)
+                    }
+                } else {
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        items(filteredStats, key = { it.user.uid }) { stat ->
+                            RefereeStatCard(stat, onClick = { onRefereeClick(stat.user.uid) })
+                        }
+                        item { Spacer(Modifier.height(16.dp)) }
+                    }
                 }
             }
         }
