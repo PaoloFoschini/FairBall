@@ -63,6 +63,7 @@ dependencies {
     implementation("androidx.room:room-runtime:2.6.1")
     ksp("androidx.room:room-compiler:2.6.1")
     implementation("androidx.room:room-ktx:2.6.1")
+    implementation("androidx.fragment:fragment-ktx:1.8.2")
 
     // Firebase
     implementation(platform(libs.firebase.bom))
@@ -83,4 +84,7 @@ dependencies {
     implementation("androidx.credentials:credentials-play-services-auth:1.3.0")
     implementation("com.google.android.libraries.identity.googleid:googleid:1.1.1")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.8.1")
+
+    // Biometric Authentication
+    implementation("androidx.biometric:biometric:1.1.0")
 }
