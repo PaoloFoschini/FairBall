@@ -151,11 +151,11 @@ fun MatchEditDialog(
                 }
                 item {
                     Text("Squadra Casa:", style = MaterialTheme.typography.labelMedium)
-                    TeamDropdown(teams, homeTeamId) { homeTeamId = it }
+                    TeamDropdown(teams.filter { it.id != awayTeamId }, homeTeamId) { homeTeamId = it }
                 }
                 item {
                     Text("Squadra Ospiti:", style = MaterialTheme.typography.labelMedium)
-                    TeamDropdown(teams, awayTeamId) { awayTeamId = it }
+                    TeamDropdown(teams.filter { it.id != homeTeamId }, awayTeamId) { awayTeamId = it }
                 }
                 if (isEditing) {
                     item {
@@ -186,6 +186,9 @@ fun MatchEditDialog(
                 val errors = mutableListOf<String>()
                 if (homeTeamId.isBlank()) errors.add("Squadra casa")
                 if (awayTeamId.isBlank()) errors.add("Squadra ospiti")
+                if (homeTeamId.isNotBlank() && homeTeamId == awayTeamId) {
+                    errors.add("Squadra Casa e Squadra Ospiti devono essere diverse")
+                }
                 if (selectedVenue == null) errors.add("Impianto")
                 if (category.isBlank()) errors.add("Categoria")
                 if (phase.isBlank()) errors.add("Fase")

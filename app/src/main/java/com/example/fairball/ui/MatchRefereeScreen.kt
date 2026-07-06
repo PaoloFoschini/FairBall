@@ -1,22 +1,24 @@
 package com.example.fairball.ui
 
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.Pause
-import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.example.fairball.data.FirestoreRepository
 import com.example.fairball.model.Match
 import com.example.fairball.model.Team
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -57,9 +59,9 @@ fun MatchRefereeScreen(
             }
         }
     }
-
     var timeLeftSeconds by remember { mutableIntStateOf(0) }
     var isTimerRunning by remember { mutableStateOf(false) }
+    var selectedDurationMinutes by remember { mutableIntStateOf(20) }
 
     LaunchedEffect(homeScore, awayScore) {
         if (isDataInitialized) {
@@ -76,10 +78,13 @@ fun MatchRefereeScreen(
         }
     }
 
+    val homeName = homeTeam?.name ?: currentMatch.homeTeamId.ifBlank { "Squadra Casa" }
+    val awayName = awayTeam?.name ?: currentMatch.awayTeamId.ifBlank { "Squadra Ospiti" }
+
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Arbitraggio Partita") },
+                title = { Text("Arbitraggio") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.Default.ArrowBack, contentDescription = "Indietro")
@@ -88,102 +93,182 @@ fun MatchRefereeScreen(
             )
         }
     ) { padding ->
-        val homeName = homeTeam?.name ?: currentMatch.homeTeamId.ifBlank { "Squadra Casa" }
-        val awayName = awayTeam?.name ?: currentMatch.awayTeamId.ifBlank { "Squadra Ospiti" }
-
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
                 .padding(16.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(20.dp)
+            verticalArrangement = Arrangement.SpaceBetween
         ) {
-            Text(
-                text = formatTime(timeLeftSeconds),
-                style = MaterialTheme.typography.displayLarge,
-                fontWeight = FontWeight.Bold
-            )
 
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                verticalAlignment = Alignment.CenterVertically
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                Button(
-                    onClick = { timeLeftSeconds = 20 * 60; isTimerRunning = true },
-                    shape = CircleShape,
-                    modifier = Modifier.size(85.dp)
-                ) { Text("20 min", style = MaterialTheme.typography.labelSmall) }
-
-                Button(
-                    onClick = { timeLeftSeconds = 5 * 60; isTimerRunning = true },
-                    shape = CircleShape,
-                    modifier = Modifier.size(75.dp)
-                ) { Text("5 min", style = MaterialTheme.typography.labelSmall) }
-
-                Button(
-                    onClick = { timeLeftSeconds = 1 * 60; isTimerRunning = true },
-                    shape = CircleShape,
-                    modifier = Modifier.size(75.dp)
-                ) { Text("1 min", style = MaterialTheme.typography.labelSmall) }
-            }
-
-            if (timeLeftSeconds > 0) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                Box(
+                    modifier = Modifier
+                        .size(190.dp)
+                        .border(2.5.dp, MaterialTheme.colorScheme.primary, CircleShape)
+                        .clickable {
+                            if (timeLeftSeconds == 0) {
+                                timeLeftSeconds = selectedDurationMinutes * 60
+                            }
+                            isTimerRunning = !isTimerRunning
+                        },
+                    contentAlignment = Alignment.Center
                 ) {
-                    FilledIconButton(onClick = { isTimerRunning = !isTimerRunning }) {
-                        Icon(if (isTimerRunning) Icons.Default.Pause else Icons.Default.PlayArrow, null)
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(
+                            text = if (timeLeftSeconds > 0) formatTime(timeLeftSeconds) else "$selectedDurationMinutes:00",
+                            fontSize = 36.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onBackground
+                        )
+                        Text(
+                            text = if (isTimerRunning) "Premi per fermare" else " Premi per avviare",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary
+                        )
                     }
-                    Text(if (isTimerRunning) "PAUSA" else "AVVIA", style = MaterialTheme.typography.labelMedium)
+                }
+
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    modifier = Modifier.wrapContentSize()
+                ) {
+                    val opzioniMinuti = listOf(20, 5, 1)
+                    for (minuti in opzioniMinuti) {
+                        if (minuti != selectedDurationMinutes) {
+                            Box(
+                                modifier = Modifier
+                                    .size(80.dp)
+                                    .border(1.5.dp, MaterialTheme.colorScheme.outline, CircleShape)
+                                    .clickable {
+                                        selectedDurationMinutes = minuti
+                                        timeLeftSeconds = minuti * 60
+                                        isTimerRunning = true
+                                    },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = "$minuti min",
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.Medium,
+                                    color = MaterialTheme.colorScheme.onBackground
+                                )
+                            }
+                        }
+                    }
                 }
             }
 
-            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceEvenly,
+                horizontalArrangement = Arrangement.spacedBy(16.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                TeamScoreControl(
-                    teamName = homeName,
-                    score = homeScore,
-                    onScoreChange = { homeScore = it }
-                )
-                Text("VS", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Black)
-                TeamScoreControl(
-                    teamName = awayName,
-                    score = awayScore,
-                    onScoreChange = { awayScore = it }
-                )
-            }
+                Column(
+                    modifier = Modifier.weight(1f),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(100.dp),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(12.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center
+                        ) {
+                            Text(
+                                text = homeName,
+                                fontSize = 14.sp,
+                                textAlign = TextAlign.Center,
+                                fontWeight = FontWeight.Bold,
+                                maxLines = 2
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = homeScore.toString(),
+                                fontSize = 32.sp,
+                                fontWeight = FontWeight.Black,
+                                textAlign = TextAlign.Center
+                            )
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedButton(onClick = { if (homeScore > 0) homeScore-- }) {
+                            Text("-", fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                        }
+                        Button(onClick = { homeScore++ }) {
+                            Text("+", fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
 
-            Spacer(modifier = Modifier.weight(1f))
+                Column(
+                    modifier = Modifier.weight(1f),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(100.dp),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(12.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center
+                        ) {
+                            Text(
+                                text = awayName,
+                                fontSize = 14.sp,
+                                textAlign = TextAlign.Center,
+                                fontWeight = FontWeight.Bold,
+                                maxLines = 2
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = awayScore.toString(),
+                                fontSize = 32.sp,
+                                fontWeight = FontWeight.Black,
+                                textAlign = TextAlign.Center
+                            )
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedButton(onClick = { if (awayScore > 0) awayScore-- }) {
+                            Text("-", fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                        }
+                        Button(onClick = { awayScore++ }) {
+                            Text("+", fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+            }
 
             Button(
                 onClick = { onEndMatch(matchId) },
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(50.dp),
+                shape = RoundedCornerShape(12.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary)
             ) {
-                Text("Fine partita")
-            }
-        }
-    }
-}
-
-@Composable
-fun TeamScoreControl(teamName: String, score: Int, onScoreChange: (Int) -> Unit) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(teamName, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Medium)
-        Text(score.toString(), style = MaterialTheme.typography.displayMedium, fontWeight = FontWeight.Bold)
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            OutlinedButton(onClick = { if (score > 0) onScoreChange(score - 1) }) {
-                Text("-", style = MaterialTheme.typography.titleLarge)
-            }
-            OutlinedButton(onClick = { onScoreChange(score + 1) }) {
-                Text("+", style = MaterialTheme.typography.titleLarge)
+                Text("Fine partita", fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
             }
         }
     }

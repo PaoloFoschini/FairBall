@@ -25,8 +25,9 @@ import com.example.fairball.model.Match
 import com.example.fairball.model.Team
 import com.example.fairball.model.User
 import com.example.fairball.model.Venue
-import com.google.firebase.Timestamp
 import kotlinx.coroutines.launch
+import com.example.fairball.model.Notification
+import com.example.fairball.model.NotificationType
 
 @Composable
 fun HomeSectionTitle(title: String, icon: androidx.compose.ui.graphics.vector.ImageVector) {
@@ -109,15 +110,28 @@ fun MatchApplicationCard(match: Match, referees: List<User>, teams: List<Team>, 
                     Button(
                         onClick = {
                             scope.launch {
-                                FirestoreRepository.updateMatch(
-                                    matchId = match.id,
-                                    fields = mapOf(
-                                        "refereeId" to uid,
-                                        "status" to "assigned",
-                                        "assignedAt" to Timestamp.now(),
-                                        "refereeApplications" to emptyList<String>()
-                                    )
+                                FirestoreRepository.assignReferee(match.id, uid, isCoReferee = false)
+
+                                val notificationId = java.util.UUID.randomUUID().toString()
+                                val dataNotifica = mapOf(
+                                    "id" to notificationId,
+                                    "title" to "Gara Assegnata!",
+                                    "message" to "Sei stato ufficialmente assegnato per arbitrare la partita: $homeTeamName vs $awayTeamName.",
+                                    "type" to NotificationType.ASSIGNED,
+                                    "relatedMatchId" to match.id,
+                                    "read" to false
                                 )
+
+                                try {
+                                    com.google.firebase.firestore.FirebaseFirestore.getInstance()
+                                        .collection("users")
+                                        .document(uid)
+                                        .collection("notifications")
+                                        .document(notificationId)
+                                        .set(dataNotifica)
+                                } catch (e: Exception) {
+                                    e.printStackTrace()
+                                }
                             }
                         },
                         contentPadding = PaddingValues(horizontal = 8.dp),

@@ -51,7 +51,6 @@ class MainActivity : FragmentActivity() {
 
         setContent {
             val themePreference by dataStoreManager.themePreferenceFlow.collectAsState(initial = ThemePreference.SYSTEM)
-
             val scope = rememberCoroutineScope()
 
             FairBallTheme(
@@ -85,7 +84,6 @@ fun FairBallApp(
                     onLoginSuccess = { role, uid ->
                         Session.uid = uid
                         Session.role = role
-
                         val destination = if (uid != null) "home/$role?uid=$uid" else "home/$role"
                         navController.navigateSafe(destination) {
                             popUpTo(navController.graph.id) { inclusive = true }
@@ -100,7 +98,6 @@ fun FairBallApp(
                     onRegisterSuccess = { role, uid ->
                         Session.uid = uid
                         Session.role = role
-
                         val destination = if (uid != null) "home/$role?uid=$uid" else "home/$role"
                         navController.navigateSafe(destination) {
                             popUpTo(navController.graph.id) { inclusive = true }
@@ -116,7 +113,7 @@ fun FairBallApp(
                     navArgument("role") { type = NavType.StringType },
                     navArgument("uid") { type = NavType.StringType; nullable = true; defaultValue = null }
                 )
-            ) { backStackEntry ->
+            ) {
                 val currentRole = Session.role
                 if (currentRole == null) {
                     LaunchedEffect(Unit) {
@@ -131,15 +128,26 @@ fun FairBallApp(
                 HomeScreen(
                     role = currentRole,
                     debugUid = Session.uid,
-                    onViewReferees = {
-                        navController.navigateSafe("league_referees") { launchSingleTop = true }
-                    },
+                    onViewReferees = { navController.navigateSafe("league_referees") { launchSingleTop = true } },
                     onViewProfile = { navController.navigateSafe("profile") { launchSingleTop = true } },
                     onViewRefereeProfile = { refereeId -> navController.navigateSafe("profile?uid=$refereeId") },
                     onViewChampionship = { navController.navigateSafe("championship") { launchSingleTop = true } },
                     onViewMap = { navController.navigateSafe("map") { launchSingleTop = true } },
-                    onArbitrateMatch = { matchId -> navController.navigateSafe("match_referee/$matchId") }
+                    onArbitrateMatch = { matchId -> navController.navigateSafe("match_referee/$matchId") },
+                    onViewNotifications = { navController.navigateSafe("notifications") { launchSingleTop = true } }
                 )
+            }
+            composable("notifications") {
+                val uid = Session.uid
+                if (uid == null) {
+                    LaunchedEffect(Unit) { navController.popBackStackSafe() }
+                } else {
+                    NotificationsScreen(
+                        uid = uid,
+                        onBack = { navController.popBackStackSafe() },
+                        onOpenMatch = { matchId -> navController.navigateSafe("match_report/$matchId") }
+                    )
+                }
             }
             composable("league_referees") {
                 LeagueRefereesScreen(
@@ -197,9 +205,7 @@ fun FairBallApp(
                 val matchId = backStackEntry.arguments?.getString("matchId") ?: ""
                 MatchSummaryScreen(
                     matchId = matchId,
-                    onFinish = {
-                        navController.popBackStackSafe()
-                    },
+                    onFinish = { navController.popBackStackSafe() },
                     onBack = { navController.popBackStackSafe() }
                 )
             }
@@ -210,9 +216,7 @@ fun FairBallApp(
                 val matchId = backStackEntry.arguments?.getString("matchId") ?: ""
                 MatchReportScreen(
                     matchId = matchId,
-                    onClose = {
-                        navController.popBackStackSafe()
-                    }
+                    onClose = { navController.popBackStackSafe() }
                 )
             }
         }

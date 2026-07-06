@@ -16,6 +16,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.draw.clip
 import com.example.fairball.data.FirestoreRepository
 import com.example.fairball.model.Match
 import com.example.fairball.model.Team
@@ -34,10 +36,23 @@ fun HomeScreen(
     onViewRefereeProfile: (String) -> Unit = {},
     onViewChampionship: () -> Unit,
     onViewMap: () -> Unit,
-    onArbitrateMatch: (String) -> Unit
+    onArbitrateMatch: (String) -> Unit,
+    onViewNotifications: () -> Unit = {}
 ) {
     val auth = FirebaseAuth.getInstance()
     val effectiveUid = debugUid ?: auth.currentUser?.uid
+
+    val snackbarHostState = remember { SnackbarHostState() }
+    val unreadCount by (effectiveUid?.let { FirestoreRepository.unreadNotificationCountFlow(it) }
+        ?: kotlinx.coroutines.flow.flowOf(0)).collectAsState(initial = 0)
+    var previousUnreadCount by remember { mutableStateOf<Int?>(null) }
+    LaunchedEffect(unreadCount) {
+        val previous = previousUnreadCount
+        if (previous != null && unreadCount > previous) {
+            snackbarHostState.showSnackbar("Hai una nuova notifica")
+        }
+        previousUnreadCount = unreadCount
+    }
 
     val allMatches by FirestoreRepository.matchesFlow().collectAsState(initial = null)
     val teamsList by FirestoreRepository.teamsFlow().collectAsState(initial = null)
@@ -54,6 +69,7 @@ fun HomeScreen(
             (role == "admin" && (allReferees == null || allUsers == null))
 
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
                 title = { Text("FairBall") },
@@ -61,7 +77,17 @@ fun HomeScreen(
                     IconButton(onClick = onViewReferees) { Icon(Icons.Default.Sports, "Arbitri") }
                 },
                 actions = {
-                    IconButton(onClick = onViewMap) { Icon(Icons.Default.Map, "Mappa") }
+                    IconButton(onClick = onViewNotifications) {
+                        BadgedBox(
+                            badge = {
+                                if (unreadCount > 0) {
+                                    Badge { Text(if (unreadCount > 9) "9+" else unreadCount.toString()) }
+                                }
+                            }
+                        ) {
+                            Icon(Icons.Default.Notifications, contentDescription = "Notifiche")
+                        }
+                    }
                     IconButton(onClick = onViewProfile) { Icon(Icons.Default.AccountCircle, "Profilo") }
                 }
             )

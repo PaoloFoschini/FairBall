@@ -1,12 +1,15 @@
 package com.example.fairball.data
 
 import com.example.fairball.model.Match
+import com.example.fairball.model.Notification
+import com.example.fairball.model.NotificationType
 import com.example.fairball.model.Team
 import com.example.fairball.model.User
 import com.example.fairball.model.Venue
 import com.google.firebase.Timestamp
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.Query
 import com.google.firebase.firestore.ktx.snapshots
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -63,6 +66,101 @@ object FirestoreRepository {
                 }
             }
 
+    fun notificationsFlow(uid: String): Flow<List<Notification>> =
+        db.collection("notifications")
+            .whereEqualTo("recipientUid", uid)
+            .orderBy("createdAt", Query.Direction.DESCENDING)
+            .snapshots()
+            .map { snapshot ->
+                snapshot.documents.mapNotNull { doc ->
+                    doc.toObject(Notification::class.java)?.copy(id = doc.id)
+                }
+            }
+
+    fun unreadNotificationCountFlow(uid: String): Flow<Int> =
+        db.collection("notifications")
+            .whereEqualTo("recipientUid", uid)
+            .whereEqualTo("read", false)
+            .snapshots()
+            .map { it.size() }
+
+    suspend fun markNotificationRead(notificationId: String) {
+        db.collection("notifications").document(notificationId).update("read", true).await()
+    }
+
+    suspend fun markAllNotificationsRead(uid: String) {
+        val unread = db.collection("notifications")
+            .whereEqualTo("recipientUid", uid)
+            .whereEqualTo("read", false)
+            .get().await()
+        val batch = db.batch()
+        for (doc in unread.documents) {
+            batch.update(doc.reference, "read", true)
+        }
+        batch.commit().await()
+    }
+
+    private suspend fun createNotification(
+        recipientUid: String,
+        type: String,
+        title: String,
+        message: String,
+        relatedMatchId: String? = null
+    ) {
+        val docRef = db.collection("notifications").document()
+        val notification = Notification(
+            id = docRef.id,
+            recipientUid = recipientUid,
+            type = type,
+            title = title,
+            message = message,
+            relatedMatchId = relatedMatchId,
+            read = false,
+            createdAt = Timestamp.now()
+        )
+        docRef.set(notification).await()
+    }
+
+    private suspend fun notifyAdmins(type: String, title: String, message: String, relatedMatchId: String? = null) {
+        val admins = db.collection("users").whereEqualTo("role", "admin").get().await()
+        val batch = db.batch()
+        for (doc in admins.documents) {
+            val docRef = db.collection("notifications").document()
+            val notification = Notification(
+                id = docRef.id,
+                recipientUid = doc.id,
+                type = type,
+                title = title,
+                message = message,
+                relatedMatchId = relatedMatchId,
+                read = false,
+                createdAt = Timestamp.now()
+            )
+            batch.set(docRef, notification)
+        }
+        batch.commit().await()
+    }
+
+    private suspend fun notifyAllReferees(type: String, title: String, message: String, relatedMatchId: String? = null) {
+        val referees = db.collection("users").whereEqualTo("role", "referee").get().await()
+        val batch = db.batch()
+        for (doc in referees.documents) {
+            val docRef = db.collection("notifications").document()
+            val notification = Notification(
+                id = docRef.id,
+                recipientUid = doc.id,
+                type = type,
+                title = title,
+                message = message,
+                relatedMatchId = relatedMatchId,
+                read = false,
+                createdAt = Timestamp.now()
+            )
+            batch.set(docRef, notification)
+        }
+        batch.commit().await()
+    }
+
     suspend fun fetchTeamNameMap(): Map<String, String> =
         db.collection("teams").get().await()
             .documents.associate { it.id to (it.getString("name") ?: it.id) }
@@ -82,6 +180,17 @@ object FirestoreRepository {
         val docRef = db.collection("matches").document()
         val newMatch = match.copy(id = docRef.id)
         docRef.set(newMatch).await()
+
+        val teamNames = fetchTeamNameMap()
+        val homeName = teamNames[match.homeTeamId] ?: match.homeTeamId
+        val awayName = teamNames[match.awayTeamId] ?: match.awayTeamId
+        notifyAllReferees(
+            type = NotificationType.NEW_MATCH,
+            title = "Nuova partita disponibile",
+            message = "$homeName vs $awayName è stata pubblicata: candidati se vuoi arbitrarla.",
+            relatedMatchId = docRef.id
+        )
+
         return docRef.id
     }
 
@@ -99,8 +208,24 @@ object FirestoreRepository {
         if (!isCoReferee) {
             updates["assignedAt"] = Timestamp.now()
             updates["status"] = "assigned"
+            updates["refereeApplications"] = emptyList<String>()
         }
         db.collection("matches").document(matchId).update(updates).await()
+
+        val teamNames = fetchTeamNameMap()
+        val matchSnapshot = db.collection("matches").document(matchId).get().await()
+        val match = matchSnapshot.toObject(Match::class.java)
+        val homeName = match?.let { teamNames[it.homeTeamId] ?: it.homeTeamId } ?: ""
+        val awayName = match?.let { teamNames[it.awayTeamId] ?: it.awayTeamId } ?: ""
+        val roleLabel = if (isCoReferee) "co-arbitro" else "arbitro"
+
+        createNotification(
+            recipientUid = refereeUid,
+            type = NotificationType.ASSIGNED,
+            title = "Sei stato assegnato a una partita",
+            message = "Sei stato assegnato come $roleLabel per $homeName vs $awayName.",
+            relatedMatchId = matchId
+        )
     }
 
     suspend fun removeReferee(matchId: String, isCoReferee: Boolean = false) {
@@ -119,6 +244,15 @@ object FirestoreRepository {
     suspend fun applyForMatch(matchId: String, refereeUid: String) {
         db.collection("matches").document(matchId)
             .update("refereeApplications", FieldValue.arrayUnion(refereeUid)).await()
+
+        val refereeName = db.collection("users").document(refereeUid).get().await()
+            .getString("displayName") ?: "Un arbitro"
+        notifyAdmins(
+            type = NotificationType.REFEREE_REQUEST,
+            title = "Nuova richiesta di arbitraggio",
+            message = "$refereeName si è candidato per arbitrare una partita.",
+            relatedMatchId = matchId
+        )
     }
 
     suspend fun withdrawApplication(matchId: String, refereeUid: String) {
@@ -128,6 +262,20 @@ object FirestoreRepository {
 
     suspend fun approveMatch(matchId: String) {
         db.collection("matches").document(matchId).update("status", "finished").await()
+
+        val matchSnapshot = db.collection("matches").document(matchId).get().await()
+        val match = matchSnapshot.toObject(Match::class.java)
+        val teamNames = fetchTeamNameMap()
+        val homeName = match?.let { teamNames[it.homeTeamId] ?: it.homeTeamId } ?: ""
+        val awayName = match?.let { teamNames[it.awayTeamId] ?: it.awayTeamId } ?: ""
+        val message = "Il referto di $homeName vs $awayName è stato approvato ed è ora visibile nella pagina del campionato."
+
+        match?.refereeId?.let { uid ->
+            createNotification(uid, NotificationType.RESULT_PUBLISHED, "Risultato pubblicato", message, matchId)
+        }
+        match?.coRefereeId?.takeIf { it.isNotEmpty() }?.let { uid ->
+            createNotification(uid, NotificationType.RESULT_PUBLISHED, "Risultato pubblicato", message, matchId)
+        }
     }
 
     suspend fun updateScore(matchId: String, homeScore: Int, awayScore: Int) {
@@ -162,6 +310,17 @@ object FirestoreRepository {
                 "adminComment" to comment
             )
         ).await()
+
+        val match = db.collection("matches").document(matchId).get().await().toObject(Match::class.java)
+        match?.refereeId?.let { uid ->
+            createNotification(
+                recipientUid = uid,
+                type = NotificationType.RESULT_REJECTED,
+                title = "Modifiche richieste al referto",
+                message = comment,
+                relatedMatchId = matchId
+            )
+        }
     }
 
     suspend fun submitMatchReport(matchId: String, photoA: String?, photoB: String?, photoRef: String?) {
@@ -174,6 +333,13 @@ object FirestoreRepository {
                 "adminComment" to null
             )
         ).await()
+
+        notifyAdmins(
+            type = NotificationType.APPROVAL_REQUEST,
+            title = "Referto da verificare",
+            message = "Un arbitro ha inviato risultato e documenti da approvare.",
+            relatedMatchId = matchId
+        )
     }
 
     suspend fun resetAndSeedMatches() {
