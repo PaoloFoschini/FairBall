@@ -157,28 +157,6 @@ fun MatchEditDialog(
                     Text("Squadra Ospiti:", style = MaterialTheme.typography.labelMedium)
                     TeamDropdown(teams.filter { it.id != homeTeamId }, awayTeamId) { awayTeamId = it }
                 }
-                if (isEditing) {
-                    item {
-                        Text("Punteggio (correzione):", style = MaterialTheme.typography.labelMedium)
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                            OutlinedTextField(
-                                value = homeScoreStr,
-                                onValueChange = { homeScoreStr = it.filter { c -> c.isDigit() } },
-                                label = { Text("Casa") },
-                                modifier = Modifier.weight(1f),
-                                singleLine = true
-                            )
-                            Text("–", fontWeight = FontWeight.Bold)
-                            OutlinedTextField(
-                                value = awayScoreStr,
-                                onValueChange = { awayScoreStr = it.filter { c -> c.isDigit() } },
-                                label = { Text("Ospiti") },
-                                modifier = Modifier.weight(1f),
-                                singleLine = true
-                            )
-                        }
-                    }
-                }
             }
         },
         confirmButton = {

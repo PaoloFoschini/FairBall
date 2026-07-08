@@ -381,7 +381,6 @@ fun MatchHistoryItem(match: Match, teams: Map<String, String>, onClick: () -> Un
         Column(modifier = Modifier.padding(16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(modifier = Modifier.weight(1f)) {
-                    Text("Gara: ${match.code}", style = MaterialTheme.typography.labelSmall, color = Color.Gray)
                     Text(
                         "${teams[match.homeTeamId] ?: match.homeTeamId} vs ${teams[match.awayTeamId] ?: match.awayTeamId}",
                         fontWeight = FontWeight.Bold
@@ -399,7 +398,6 @@ fun MatchHistoryItem(match: Match, teams: Map<String, String>, onClick: () -> Un
             }
             if (match.status == "finished") {
                 Spacer(Modifier.height(8.dp))
-                Text("Vedi referto completo", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
             }
         }
     }

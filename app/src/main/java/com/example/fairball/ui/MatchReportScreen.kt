@@ -21,6 +21,8 @@ import coil.compose.AsyncImage
 import com.example.fairball.data.FirestoreRepository
 import com.example.fairball.model.Match
 import com.example.fairball.model.Team
+import java.text.SimpleDateFormat
+import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -28,21 +30,26 @@ fun MatchReportScreen(matchId: String, onClose: () -> Unit) {
     val allMatches by FirestoreRepository.matchesFlow().collectAsState(initial = null)
     val allTeams by FirestoreRepository.teamsFlow().collectAsState(initial = null)
     val allUsers by FirestoreRepository.usersFlow().collectAsState(initial = null)
+    val allVenues by FirestoreRepository.venuesFlow().collectAsState(initial = null)
 
     var match by remember { mutableStateOf<Match?>(null) }
     var homeTeamName by remember { mutableStateOf("") }
     var awayTeamName by remember { mutableStateOf("") }
     var refereeName by remember { mutableStateOf("") }
+    var venueName by remember { mutableStateOf("") }
+    var category by remember {mutableStateOf("")}
     var isLoading by remember { mutableStateOf(true) }
 
-    LaunchedEffect(allMatches, allTeams, allUsers, matchId) {
-        if (allMatches == null || allTeams == null || allUsers == null) return@LaunchedEffect
+    LaunchedEffect(allMatches, allTeams, allUsers, allVenues, matchId) {
+        if (allMatches == null || allTeams == null || allUsers == null || allVenues == null) return@LaunchedEffect
         val m = allMatches!!.find { it.id == matchId }
         match = m
         if (m != null) {
             homeTeamName = allTeams!!.find { it.id == m.homeTeamId }?.name ?: m.homeTeamId
             awayTeamName = allTeams!!.find { it.id == m.awayTeamId }?.name ?: m.awayTeamId
             refereeName = allUsers!!.find { it.uid == m.refereeId }?.displayName ?: "Non assegnato"
+            venueName = allVenues!!.find { it.id == m.venueId }?.name ?: m.venueId
+            category = m.category
         }
         isLoading = false
     }
@@ -82,8 +89,41 @@ fun MatchReportScreen(matchId: String, onClose: () -> Unit) {
                         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
                     ) {
                         Column(modifier = Modifier.padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text("Gara: ${m.code}", style = MaterialTheme.typography.labelMedium, color = Color.Gray)
+
+                            // 1. Fase del torneo (es. Semifinale, Finale, Gironi)
+                            Text(
+                                text = m.phase.uppercase(Locale.ITALY),
+                                style = MaterialTheme.typography.labelLarge,
+                                color = MaterialTheme.colorScheme.primary,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Spacer(Modifier.height(6.dp))
+
+                            val dateStr = m.scheduledAt?.toDate()?.let {
+                                SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.ITALY).format(it)
+                            } ?: "Data non disponibile"
+
+                            Text(
+                                text = "Data: $dateStr",
+                                style = MaterialTheme.typography.bodyMedium
+                            )
                             Spacer(Modifier.height(4.dp))
+
+                            Text(
+                                text = "Luogo: $venueName",
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                            Spacer(Modifier.height(4.dp))
+
+                            Text(
+                                text = "Categoria: $category",
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                            Spacer(Modifier.height(14.dp))
+
+                            HorizontalDivider()
+                            Spacer(Modifier.height(14.dp))
+
                             Text("Risultato Finale", style = MaterialTheme.typography.titleMedium)
                             Spacer(Modifier.height(16.dp))
                             Row(
@@ -96,8 +136,10 @@ fun MatchReportScreen(matchId: String, onClose: () -> Unit) {
                                 ScoreDisplay(awayTeamName.ifEmpty { m.awayTeamId }, m.awayScore)
                             }
                             Spacer(Modifier.height(16.dp))
+
                             HorizontalDivider()
                             Spacer(Modifier.height(12.dp))
+
                             Text("Arbitro: $refereeName", style = MaterialTheme.typography.bodyMedium)
                         }
                     }
