@@ -80,9 +80,6 @@ fun LeagueRefereesScreen(
             }
         } else {
             Column(modifier = Modifier.fillMaxSize().padding(padding).padding(16.dp)) {
-                Text("Hall of Fame", style = MaterialTheme.typography.headlineSmall)
-                Spacer(Modifier.height(12.dp))
-
                 SearchField(searchQuery, { searchQuery = it }, "Cerca arbitro per nome")
                 Spacer(Modifier.height(6.dp))
 

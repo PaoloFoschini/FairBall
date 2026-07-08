@@ -397,7 +397,7 @@ fun MatchHistoryItem(match: Match, teams: Map<String, String>, onClick: () -> Un
                         "${teams[match.homeTeamId] ?: match.homeTeamId} vs ${teams[match.awayTeamId] ?: match.awayTeamId}",
                         fontWeight = FontWeight.Bold
                     )
-                    Text(match.phase, style = MaterialTheme.typography.bodySmall)
+                    Text("Categoria: " + match.category, style = MaterialTheme.typography.bodySmall)
                 }
                 if (match.status == "finished") {
                     Text(
