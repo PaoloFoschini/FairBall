@@ -33,7 +33,7 @@ import org.osmdroid.views.overlay.Marker
 private val DEFAULT_CENTER = GeoPoint(45.4642, 9.1900)
 
 /**
- * Vista mappa riutilizzabile: mostra un marker per ogni impianto e, se disponibile,
+ * Mappa che mostra un marker per ogni impianto e, se disponibile,
  * un marker per la posizione dell'utente (su cui viene centrata la mappa).
  *
  * - onMarkerClick: tap su un impianto esistente
@@ -106,7 +106,7 @@ fun VenueMapView(
 }
 
 /**
- * Scheda (bottom sheet) con i dettagli di un impianto e le ultime partite giocate lì.
+ * Scheda con i dettagli di un impianto e le ultime partite giocate lì.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -180,8 +180,7 @@ fun VenueDetailSheet(
 }
 
 /**
- * Dialog a tutto schermo per selezionare un impianto esistente (tap su un marker)
- * oppure crearne uno nuovo (tenuta premuta su un punto della mappa).
+ * Dialog a tutto schermo per selezionare un impianto esistente oppure crearne uno nuovo.
  * Usato dal form di modifica/creazione partita.
  */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -256,6 +255,9 @@ fun VenuePickerDialog(
     }
 }
 
+/**
+ * Dialog per la creazione di un nuovo impianto.
+ */
 @Composable
 private fun NewVenueDialog(
     point: GeoPoint,

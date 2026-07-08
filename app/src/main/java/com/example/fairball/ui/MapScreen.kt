@@ -11,6 +11,9 @@ import com.example.fairball.data.FirestoreRepository
 import com.example.fairball.model.Match
 import com.example.fairball.model.Venue
 
+/**
+ * Schermata di visualizzazione della mappa con i vari impianti
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MapScreen(

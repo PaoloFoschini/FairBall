@@ -23,6 +23,9 @@ import com.google.firebase.FirebaseApp
 import androidx.compose.runtime.rememberCoroutineScope
 import kotlinx.coroutines.launch
 
+/**
+ * Navigazione tra le schermate.
+ */
 private fun NavController.navigateSafe(route: String, builder: NavOptionsBuilder.() -> Unit = {}) {
     if (currentBackStackEntry?.lifecycle?.currentState == Lifecycle.State.RESUMED) {
         navigate(route, builder)

@@ -6,6 +6,9 @@ import androidx.fragment.app.FragmentActivity
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlin.coroutines.resume
 
+/**
+ * Enumerazione degli stati di autenticazione con l'impronta.
+ */
 sealed class BiometricAvailability {
     object Available : BiometricAvailability()
     object NoHardware : BiometricAvailability()
@@ -14,6 +17,9 @@ sealed class BiometricAvailability {
     object Unsupported : BiometricAvailability()
 }
 
+/**
+ * Enumerazione dei risultati dell'autenticazione con l'impronta.
+ */
 sealed class BiometricAuthOutcome {
     object Success : BiometricAuthOutcome()
     object Cancelled : BiometricAuthOutcome()
@@ -40,6 +46,9 @@ fun checkBiometricAvailability(activity: FragmentActivity): BiometricAvailabilit
     }
 }
 
+/**
+ * Mostra una finestra di dialogo per l'autenticazione con l'impronta.
+ */
 suspend fun showBiometricPrompt(
     activity: FragmentActivity,
     title: String = "Accedi con l'impronta",

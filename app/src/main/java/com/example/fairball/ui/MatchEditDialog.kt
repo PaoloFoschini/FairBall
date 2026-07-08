@@ -12,7 +12,6 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.fairball.model.Match
 import com.example.fairball.model.Team
@@ -23,6 +22,9 @@ import java.util.Calendar
 import java.util.Locale
 import java.util.TimeZone
 
+/**
+ * Dialog per la modifica di una partita.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MatchEditDialog(
@@ -272,6 +274,9 @@ fun MatchEditDialog(
     }
 }
 
+/**
+ * Lista per la selezione di una squadra.
+ */
 @Composable
 fun TeamDropdown(teams: List<Team>, selectedId: String, onSelect: (String) -> Unit) {
     var expanded by remember { mutableStateOf(false) }
@@ -291,6 +296,9 @@ fun TeamDropdown(teams: List<Team>, selectedId: String, onSelect: (String) -> Un
     }
 }
 
+/**
+ * Formatta la data in formato dd/MM/yyyy.
+ */
 private fun formatSelectedDate(utcMillis: Long): String {
     val sdf = SimpleDateFormat("dd/MM/yyyy", Locale.ITALY)
     sdf.timeZone = TimeZone.getTimeZone("UTC")

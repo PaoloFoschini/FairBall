@@ -19,9 +19,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.fairball.data.FirestoreRepository
-import com.example.fairball.model.Match
-import com.example.fairball.model.User
 
+/**
+ * Statistiche di filtro di un arbitro.
+ */
 private enum class RefereeSortOrder(val label: String) {
     MATCHES("Più partite"),
     NAME("Nome A-Z")
@@ -123,6 +124,9 @@ fun LeagueRefereesScreen(
     }
 }
 
+/**
+ * Statistiche di un arbitro, compresi badge e partite.
+ */
 @Composable
 fun RefereeStatCard(stat: RefereeStat, onClick: () -> Unit) {
     var expanded by remember { mutableStateOf(false) }

@@ -11,13 +11,18 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import com.example.fairball.model.User
 
+/**
+ * Opzioni di ruolo.
+ */
 private data class RoleOption(val value: String, val label: String)
-
 private val ROLE_OPTIONS = listOf(
     RoleOption("referee", "Arbitro"),
     RoleOption("admin", "Amministratore")
 )
 
+/**
+ * Dialog di modifica profilo utente.
+ */
 @Composable
 fun RefereeEditDialog(
     referee: User,

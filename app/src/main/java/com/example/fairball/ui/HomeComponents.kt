@@ -26,9 +26,11 @@ import com.example.fairball.model.Team
 import com.example.fairball.model.User
 import com.example.fairball.model.Venue
 import kotlinx.coroutines.launch
-import com.example.fairball.model.Notification
 import com.example.fairball.model.NotificationType
 
+/**
+ * Scheda di sezione con titolo e icona.
+ */
 @Composable
 fun HomeSectionTitle(title: String, icon: androidx.compose.ui.graphics.vector.ImageVector) {
     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(vertical = 8.dp)) {
@@ -38,6 +40,9 @@ fun HomeSectionTitle(title: String, icon: androidx.compose.ui.graphics.vector.Im
     }
 }
 
+/**
+ * Scheda di visualizzazione di una partita.
+ */
 @Composable
 fun MyMatchCard(match: Match, teamsMap: Map<String, String>, onVai: () -> Unit, onDisdici: () -> Unit) {
     Card(
@@ -61,6 +66,9 @@ fun MyMatchCard(match: Match, teamsMap: Map<String, String>, onVai: () -> Unit, 
     }
 }
 
+/**
+ * Scheda di visualizzazione di una partita disponibile.
+ */
 @Composable
 fun AvailableMatchCard(match: Match, teamsMap: Map<String, String>, onPrenotati: () -> Unit) {
     Card(modifier = Modifier.fillMaxWidth()) {
@@ -79,6 +87,9 @@ fun AvailableMatchCard(match: Match, teamsMap: Map<String, String>, onPrenotati:
     }
 }
 
+/**
+ * Scheda di visualizzazione di una partita in corso.
+ */
 @Composable
 fun MatchApplicationCard(match: Match, referees: List<User>, teams: List<Team>, venues: List<Venue>) {
     val scope = rememberCoroutineScope()
@@ -145,6 +156,9 @@ fun MatchApplicationCard(match: Match, referees: List<User>, teams: List<Team>, 
     }
 }
 
+/**
+ * Scheda di visualizzazione di una partita in attesa di approvazione.
+ */
 @Composable
 fun MatchApprovalCard(match: Match, referees: List<User>, teams: List<Team>) {
     val scope = rememberCoroutineScope()
@@ -253,6 +267,9 @@ fun MatchApprovalCard(match: Match, referees: List<User>, teams: List<Team>) {
     }
 }
 
+/**
+ * Scheda di visualizzazione di una partita in corso.
+ */
 @Composable
 fun HomeMatchAdminCard(match: Match, referees: List<User>, teams: List<Team>, venues: List<Venue>) {
     val scope = rememberCoroutineScope()
@@ -338,6 +355,9 @@ fun HomeMatchAdminCard(match: Match, referees: List<User>, teams: List<Team>, ve
     }
 }
 
+/**
+ * Scheda di visualizzazione di un documento.
+ */
 @Composable
 fun DocMiniPreview(uri: String?, label: String, onClick: ((String) -> Unit)? = null) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -361,6 +381,9 @@ fun DocMiniPreview(uri: String?, label: String, onClick: ((String) -> Unit)? = n
     }
 }
 
+/**
+ * Converte un oggetto Match in un Map di valori.
+ */
 private fun Match.toMap(): Map<String, Any?> = mapOf(
     "homeTeamId" to homeTeamId,
     "awayTeamId" to awayTeamId,

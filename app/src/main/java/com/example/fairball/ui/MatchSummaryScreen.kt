@@ -27,6 +27,9 @@ import com.example.fairball.data.FirestoreRepository
 import kotlinx.coroutines.launch
 import java.io.ByteArrayOutputStream
 
+/**
+ * Schermata di riepilogo della partita.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MatchSummaryScreen(
@@ -153,6 +156,9 @@ fun MatchSummaryScreen(
     }
 }
 
+/**
+ * Componente per la visualizzazione di sezione di caricamento di immagini.
+ */
 @Composable
 fun PhotoUploadSection(label: String, imageUri: Uri?, onUploadClick: () -> Unit) {
     Card(

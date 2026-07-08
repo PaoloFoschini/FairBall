@@ -17,6 +17,9 @@ import com.google.firebase.auth.FirebaseUser
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.launch
 
+/**
+ * Pagina di accesso tramite Google.
+ */
 @Composable
 fun LoginScreen(
     onLoginSuccess: (String, String?) -> Unit,
@@ -32,12 +35,9 @@ fun LoginScreen(
     /**
      * Dopo che Google ha confermato l'account e Firestore ha trovato il profilo,
      * se il dispositivo supporta la biometria la richiediamo come secondo fattore
-     * obbligatorio PRIMA di completare il login. Non è un'alternativa a Google,
-     * è un controllo aggiuntivo nello stesso flusso: chi entra deve avere sia
-     * l'account Google sia sbloccato il dispositivo con la propria biometria.
-     *
+     * obbligatorio PRIMA di completare il login.
      * Se il dispositivo non ha biometria disponibile/configurata, si procede
-     * normalmente senza bloccare l'utente (fallback "graceful").
+     * normalmente senza bloccare l'utente.
      */
     suspend fun confirmIdentityWithBiometricsIfAvailable(): Boolean {
         val fragmentActivity = activity ?: return true

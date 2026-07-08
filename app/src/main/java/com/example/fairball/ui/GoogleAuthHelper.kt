@@ -17,6 +17,9 @@ import kotlinx.coroutines.tasks.await
 
 private const val WEB_CLIENT_ID = "1008501694911-4grfprp1gt93nbrajp8mg9hbu5d1gejb.apps.googleusercontent.com"
 
+/**
+ * Enumerazione dei risultati dell'autenticazione con Google.
+ */
 sealed class GoogleSignInOutcome {
     data class Success(val firebaseUser: FirebaseUser) : GoogleSignInOutcome()
     object NoCredential : GoogleSignInOutcome()
@@ -32,10 +35,8 @@ sealed class UserLookupResult {
  * Avvia il flusso di Google Sign-In tramite Credential Manager e autentica su Firebase.
  *
  * @param filterByAuthorizedAccounts
- *   - true  -> mostra solo account Google già usati in precedenza con questa app (adatto al LOGIN,
- *              esperienza più rapida/silenziosa per chi ha già un account).
- *   - false -> mostra tutti gli account Google disponibili sul dispositivo (adatto alla REGISTRAZIONE,
- *              perché l'utente potrebbe non aver mai usato l'app prima).
+ *   - true  -> mostra solo account Google già usati in precedenza con questa app
+ *   - false -> mostra tutti gli account Google disponibili sul dispositivo
  */
 suspend fun signInWithGoogle(
     context: Context,

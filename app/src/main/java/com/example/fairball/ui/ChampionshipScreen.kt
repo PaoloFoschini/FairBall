@@ -17,6 +17,9 @@ import com.example.fairball.model.Match
 import com.example.fairball.model.MatchStatus
 import com.example.fairball.model.statusEnum
 
+/**
+ * Scheda di visualizzazione del campionato.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ChampionshipScreen(
@@ -86,6 +89,9 @@ fun ChampionshipScreen(
     }
 }
 
+/**
+ * Scheda di visualizzazione di una partita del campionato.
+ */
 @Composable
 fun ChampionshipPastMatchItem(
     match: Match,

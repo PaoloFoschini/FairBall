@@ -33,6 +33,9 @@ import com.example.fairball.model.Match
 import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.launch
 
+/**
+ * Schermata di visualizzazione del profilo utente.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProfileScreen(
@@ -265,6 +268,9 @@ fun ProfileScreen(
     }
 }
 
+/**
+ * Componente per la visualizzazione dell'header del profilo.
+ */
 @Composable
 fun ProfileHeader(
     user: com.example.fairball.model.User,
@@ -325,6 +331,9 @@ fun ProfileHeader(
     }
 }
 
+/**
+ * Dialog di modifica profilo.
+ */
 @Composable
 fun ProfileEditDialog(
     currentUser: com.example.fairball.model.User,
@@ -371,6 +380,9 @@ fun ProfileEditDialog(
     )
 }
 
+/**
+ * Componente per la visualizzazione dello storico delle partite di un arbitro.
+ */
 @Composable
 fun MatchHistoryItem(match: Match, teams: Map<String, String>, onClick: () -> Unit) {
     Card(

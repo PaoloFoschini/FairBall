@@ -21,6 +21,9 @@ import com.example.fairball.model.Notification
 import com.example.fairball.model.NotificationType
 import kotlinx.coroutines.launch
 
+/**
+ * Schermata di visualizzazione delle notifiche.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun NotificationsScreen(
@@ -105,6 +108,9 @@ fun NotificationsScreen(
     }
 }
 
+/**
+ * Ottiene l'icona corrispondente al tipo di notifica.
+ */
 private fun iconForType(type: String): ImageVector = when (type) {
     NotificationType.NEW_MATCH -> Icons.Default.SportsSoccer
     NotificationType.REFEREE_REQUEST -> Icons.Default.AssignmentInd
@@ -115,6 +121,9 @@ private fun iconForType(type: String): ImageVector = when (type) {
     else -> Icons.Default.Notifications
 }
 
+/**
+ * Componente per la visualizzazione di una notifica.
+ */
 @Composable
 private fun NotificationCard(
     notification: Notification,

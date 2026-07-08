@@ -16,6 +16,9 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.launch
 
+/**
+ * Schermata di registrazione di un nuovo account.
+ */
 @Composable
 fun RegisterScreen(
     onRegisterSuccess: (String, String?) -> Unit,

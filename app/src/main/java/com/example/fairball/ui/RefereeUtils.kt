@@ -14,7 +14,9 @@ import com.example.fairball.model.Match
 import com.example.fairball.model.User
 import java.util.*
 
-// 1. MODELLI DEI DATI PER LA UI
+/**
+ * Struttura di definizione di un badge
+ */
 data class Badge(
     val name: String,
     val description: String,
@@ -25,13 +27,18 @@ data class Badge(
     val target: Int = 1
 )
 
+/**
+ * Statistiche di un arbitro (partite arbitrate e badge)
+ */
 data class RefereeStat(
     val user: User,
     val matchCount: Int,
     val badges: List<Badge>
 )
 
-// 2. FUNZIONE DI CALCOLO DINAMICO (Prende i dati dai match reali e aggiorna i badge all'istante)
+/**
+ * Funzione di calcolo di raggiungimento di badge
+ */
 fun calculateRefereeStats(user: User, allMatches: List<Match>): RefereeStat {
     val myFinishedMatches = allMatches.filter {
         (it.refereeId == user.uid || it.coRefereeId == user.uid) && it.status == "finished"
@@ -131,7 +138,9 @@ fun calculateRefereeStats(user: User, allMatches: List<Match>): RefereeStat {
     return RefereeStat(user, totalMatches, badges)
 }
 
-// 3. INTERFACCIA GRAFICA (COMPOSE)
+/**
+ * Componente per la visualizzazione di un badge.
+ */
 @Composable
 fun BadgeItem(badge: Badge) {
     Row(
@@ -156,7 +165,6 @@ fun BadgeItem(badge: Badge) {
                 style = MaterialTheme.typography.labelSmall,
                 color = Color.Gray
             )
-            // Mostra la barra solo se non è sbloccato, l'obiettivo è superiore a 1 e c'è del progresso reale
             if (!badge.isUnlocked && badge.target > 1 && badge.progress > 0) {
                 LinearProgressIndicator(
                     progress = { (badge.progress.toFloat() / badge.target.toFloat()).coerceAtMost(1f) },

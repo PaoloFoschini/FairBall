@@ -20,10 +20,12 @@ import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.example.fairball.data.FirestoreRepository
 import com.example.fairball.model.Match
-import com.example.fairball.model.Team
 import java.text.SimpleDateFormat
 import java.util.Locale
 
+/**
+ * Schermata di visualizzazione del report della partita.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MatchReportScreen(matchId: String, onClose: () -> Unit) {
@@ -90,7 +92,6 @@ fun MatchReportScreen(matchId: String, onClose: () -> Unit) {
                     ) {
                         Column(modifier = Modifier.padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
 
-                            // 1. Fase del torneo (es. Semifinale, Finale, Gironi)
                             Text(
                                 text = m.phase.uppercase(Locale.ITALY),
                                 style = MaterialTheme.typography.labelLarge,
@@ -158,6 +159,9 @@ fun MatchReportScreen(matchId: String, onClose: () -> Unit) {
     }
 }
 
+/**
+ * Componente per la visualizzazione del punteggio di una squadra.
+ */
 @Composable
 fun ScoreDisplay(name: String, score: Int) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -166,6 +170,9 @@ fun ScoreDisplay(name: String, score: Int) {
     }
 }
 
+/**
+ * Componente per la visualizzazione di una immagine nel report della partita.
+ */
 @Composable
 fun ReportImageSection(label: String, uri: String?) {
     Column(modifier = Modifier.fillMaxWidth()) {

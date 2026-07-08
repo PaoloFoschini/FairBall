@@ -1,6 +1,5 @@
 package com.example.fairball.ui
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -16,8 +15,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.ui.draw.clip
 import com.example.fairball.data.FirestoreRepository
 import com.example.fairball.model.Match
 import com.example.fairball.model.Team
@@ -26,6 +23,9 @@ import com.example.fairball.model.Venue
 import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.launch
 
+/**
+ * Pagina principale dell'applicazione.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
@@ -132,6 +132,9 @@ fun HomeScreen(
     }
 }
 
+/**
+ * Mappa degli stati delle gare.
+ */
 val statusLabels = mapOf(
     "pending" to "In Attesa",
     "assigned" to "Assegnata",
@@ -140,6 +143,9 @@ val statusLabels = mapOf(
     "rejected" to "Rifiutata"
 )
 
+/**
+ * Bottone per filtri.
+ */
 @Composable
 fun CompactFilterChip(label: String, selected: Boolean, onClick: () -> Unit) {
     FilterChip(
@@ -150,6 +156,9 @@ fun CompactFilterChip(label: String, selected: Boolean, onClick: () -> Unit) {
     )
 }
 
+/**
+ * Etichetta di filtro.
+ */
 @Composable
 private fun FilterGroupLabel(text: String) {
     Text(
@@ -161,6 +170,9 @@ private fun FilterGroupLabel(text: String) {
     )
 }
 
+/**
+ * Lista di filtri per tipologia di gara.
+ */
 @Composable
 fun CategoryFilterRow(
     categories: List<String>,
@@ -182,6 +194,9 @@ fun CategoryFilterRow(
     }
 }
 
+/**
+ * Lista di filtri per stato della partita.
+ */
 @Composable
 fun StatusFilterRow(
     statuses: List<String>,
@@ -203,6 +218,9 @@ fun StatusFilterRow(
     }
 }
 
+/**
+ * Filtro di ricerca.
+ */
 @Composable
 fun SearchField(
     query: String,
@@ -227,6 +245,9 @@ fun SearchField(
     )
 }
 
+/**
+ * Pagina home di amministrazione.
+ */
 @Composable
 fun ColumnScope.AdminHomeContent(
     allMatches: List<Match>,
@@ -399,6 +420,9 @@ fun ColumnScope.AdminHomeContent(
     }
 }
 
+/**
+ * Pagina home di un arbitro.
+ */
 @Composable
 fun ColumnScope.RefereeHomeContent(
     effectiveUid: String?,

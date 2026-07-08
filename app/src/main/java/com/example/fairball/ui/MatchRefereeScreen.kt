@@ -21,6 +21,9 @@ import com.example.fairball.model.Team
 import kotlinx.coroutines.delay
 import java.util.Locale
 
+/**
+ * Schermata di arbitraggio di una partita.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MatchRefereeScreen(
@@ -274,6 +277,9 @@ fun MatchRefereeScreen(
     }
 }
 
+/**
+ * Formatta i secondi in un formato MM:SS.
+ */
 fun formatTime(seconds: Int): String {
     val m = seconds / 60
     val s = seconds % 60
