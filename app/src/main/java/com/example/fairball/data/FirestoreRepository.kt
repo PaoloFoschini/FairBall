@@ -9,9 +9,9 @@ import com.example.fairball.model.Venue
 import com.google.firebase.Timestamp
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
-import com.google.firebase.firestore.Query
 import com.google.firebase.firestore.ktx.snapshots
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.tasks.await
 import java.util.Calendar
@@ -69,12 +69,19 @@ object FirestoreRepository {
     fun notificationsFlow(uid: String): Flow<List<Notification>> =
         db.collection("notifications")
             .whereEqualTo("recipientUid", uid)
-            .orderBy("createdAt", Query.Direction.DESCENDING)
+            // Nota: niente .orderBy() qui. Un whereEqualTo + orderBy su un campo
+            // diverso richiede un indice composito su Firestore: se l'indice non
+            // esiste la query fallisce silenziosamente e lo schermo resta bloccato
+            // sullo spinner per sempre. Ordiniamo quindi lato client.
             .snapshots()
             .map { snapshot ->
-                snapshot.documents.mapNotNull { doc ->
-                    doc.toObject(Notification::class.java)?.copy(id = doc.id)
-                }
+                snapshot.documents
+                    .mapNotNull { doc -> doc.toObject(Notification::class.java)?.copy(id = doc.id) }
+                    .sortedByDescending { it.createdAt?.seconds ?: 0L }
+            }
+            .catch { e ->
+                e.printStackTrace()
+                emit(emptyList())
             }
 
     fun unreadNotificationCountFlow(uid: String): Flow<Int> =
@@ -83,6 +90,10 @@ object FirestoreRepository {
             .whereEqualTo("read", false)
             .snapshots()
             .map { it.size() }
+            .catch { e ->
+                e.printStackTrace()
+                emit(0)
+            }
 
     suspend fun markNotificationRead(notificationId: String) {
         db.collection("notifications").document(notificationId).update("read", true).await()
@@ -344,11 +355,21 @@ object FirestoreRepository {
 
     suspend fun resetAndSeedMatches() {
         val matchesRef = db.collection("matches")
+        val notificationsRef = db.collection("notifications")
 
         try {
             val snapshot = matchesRef.get().await()
             for (doc in snapshot.documents) {
                 doc.reference.delete().await()
+            }
+
+            // Le notifiche fanno riferimento a matchId che stiamo per cancellare:
+            // se non le ripuliamo restano per sempre, anche riferite a partite inesistenti.
+            val notifSnapshot = notificationsRef.get().await()
+            notifSnapshot.documents.chunked(450).forEach { chunk ->
+                val batch = db.batch()
+                chunk.forEach { doc -> batch.delete(doc.reference) }
+                batch.commit().await()
             }
         } catch (e: Exception) {
             e.printStackTrace()

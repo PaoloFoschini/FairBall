@@ -12,6 +12,21 @@ object FirebaseDataSeeder {
 
     private val db = FirebaseFirestore.getInstance()
 
+    /**
+     * Cancella tutti i documenti di una collection, gestendo il limite di 500
+     * operazioni per batch di Firestore.
+     */
+    private suspend fun clearCollection(collectionName: String) {
+        val snapshot = db.collection(collectionName).get().await()
+        if (snapshot.isEmpty) return
+
+        snapshot.documents.chunked(450).forEach { chunk ->
+            val batch = db.batch()
+            chunk.forEach { doc -> batch.delete(doc.reference) }
+            batch.commit().await()
+        }
+    }
+
     fun seedData() {
         CoroutineScope(Dispatchers.IO).launch {
             try {
@@ -20,6 +35,10 @@ object FirebaseDataSeeder {
                 if (!venuesSnapshot.isEmpty) {
                     return@launch
                 }
+
+                // Il database risulta "vuoto" (reset): ripuliamo anche le notifiche
+                // rimaste orfane da partite precedenti, altrimenti resterebbero per sempre.
+                clearCollection("notifications")
 
                 // 1. POPOLAMENTO UTENTI/ARBITRI (Senza campo badges, come d'accordo)
                 val users = mapOf(
