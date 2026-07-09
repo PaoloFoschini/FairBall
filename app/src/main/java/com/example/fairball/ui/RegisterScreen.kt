@@ -82,9 +82,8 @@ fun RegisterScreen(
         )
 
         Text(
-            text = "Crea il tuo account",
-            style = MaterialTheme.typography.titleLarge,
-            textAlign = TextAlign.Center
+            text = "FairBall",
+            style = MaterialTheme.typography.headlineMedium
         )
 
         Spacer(modifier = Modifier.height(16.dp))
