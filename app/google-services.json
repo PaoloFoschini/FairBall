@@ -22,6 +22,14 @@
           }
         },
         {
+          "client_id": "1008501694911-prcp2t5sf2p2tcgcj6b89hq4e9plqm5k.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.fairball",
+            "certificate_hash": "388ce0a715764d1fac4675f56e3be4d963c1066d"
+          }
+        },
+        {
           "client_id": "1008501694911-4grfprp1gt93nbrajp8mg9hbu5d1gejb.apps.googleusercontent.com",
           "client_type": 3
         }
