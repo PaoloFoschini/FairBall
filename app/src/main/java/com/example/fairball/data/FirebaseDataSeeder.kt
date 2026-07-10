@@ -37,6 +37,10 @@ object FirebaseDataSeeder {
     // TODO: sostituisci con l'UID reale dell'account demo creato in Firebase Authentication.
     private const val DEMO_REFEREE_UID = "demo_arbitro_presentazione"
 
+    // Calendar "base" congelato all'inizio di ogni seedPresentationData(), da cui [ts] deriva
+    // tutti i timestamp relativi del run corrente.
+    private lateinit var cal: Calendar
+
     /**
      * Cancella tutti i documenti di una collection, gestendo il limite di 500
      * operazioni per batch di Firestore.
@@ -49,6 +53,16 @@ object FirebaseDataSeeder {
             chunk.forEach { doc -> batch.delete(doc.reference) }
             batch.commit().await()
         }
+    }
+
+    private fun ts(daysOffset: Int, hour: Int, minute: Int = 0): Timestamp {
+        val c = cal.clone() as Calendar
+        c.add(Calendar.DAY_OF_YEAR, daysOffset)
+        c.set(Calendar.HOUR_OF_DAY, hour)
+        c.set(Calendar.MINUTE, minute)
+        c.set(Calendar.SECOND, 0)
+        c.set(Calendar.MILLISECOND, 0)
+        return Timestamp(c.time)
     }
 
     /**
@@ -74,20 +88,19 @@ object FirebaseDataSeeder {
             clearCollection("users")
         }
 
-        val cal = Calendar.getInstance()
-        fun ts(daysOffset: Int, hour: Int, minute: Int = 0): Timestamp {
-            val c = cal.clone() as Calendar
-            c.add(Calendar.DAY_OF_YEAR, daysOffset)
-            c.set(Calendar.HOUR_OF_DAY, hour)
-            c.set(Calendar.MINUTE, minute)
-            c.set(Calendar.SECOND, 0)
-            c.set(Calendar.MILLISECOND, 0)
-            return Timestamp(c.time)
-        }
+        cal = Calendar.getInstance()
 
-        // ---------------------------------------------------------------
-        // 1. UTENTI: admin, arbitro demo (per il login) + roster di arbitri
-        // ---------------------------------------------------------------
+        seedUsers()
+        seedVenues()
+        seedTeams()
+        seedMatches()
+        seedNotifications()
+    }
+
+    // ---------------------------------------------------------------
+    // 1. UTENTI: admin, arbitro demo (per il login) + roster di arbitri
+    // ---------------------------------------------------------------
+    private suspend fun seedUsers() {
         val users = mapOf(
             "admin_01" to mapOf(
                 "displayName" to "Giulia Bianchi",
@@ -118,10 +131,12 @@ object FirebaseDataSeeder {
         for ((id, data) in users) {
             db.collection("users").document(id).set(data).await()
         }
+    }
 
-        // ---------------------------------------------------------------
-        // 2. PALESTRE (6, città diverse: utile per mostrare mappe/filtri)
-        // ---------------------------------------------------------------
+    // ---------------------------------------------------------------
+    // 2. PALESTRE (6, città diverse: utile per mostrare mappe/filtri)
+    // ---------------------------------------------------------------
+    private suspend fun seedVenues() {
         val venues = mapOf(
             "venue_01" to mapOf("name" to "PalaRuffini - Torino", "address" to "Viale Bistolfi 10, Torino", "latitude" to 45.0632, "longitude" to 7.6258),
             "venue_02" to mapOf("name" to "Centro Sportivo Crespi - Milano", "address" to "Via Valvassori Peroni 48, Milano", "latitude" to 45.4795, "longitude" to 9.2327),
@@ -133,10 +148,12 @@ object FirebaseDataSeeder {
         for ((id, data) in venues) {
             db.collection("venues").document(id).set(data).await()
         }
+    }
 
-        // ---------------------------------------------------------------
-        // 3. SQUADRE (8, città diverse)
-        // ---------------------------------------------------------------
+    // ---------------------------------------------------------------
+    // 3. SQUADRE (8, città diverse)
+    // ---------------------------------------------------------------
+    private suspend fun seedTeams() {
         val teams = mapOf(
             "team_01" to mapOf("name" to "Torino Vipers Dodgeball", "city" to "Torino"),
             "team_02" to mapOf("name" to "Milano Fireballs", "city" to "Milano"),
@@ -150,10 +167,12 @@ object FirebaseDataSeeder {
         for ((id, data) in teams) {
             db.collection("teams").document(id).set(data).await()
         }
+    }
 
-        // ---------------------------------------------------------------
-        // 4. PARTITE: una per ogni stato/flusso rilevante dell'app
-        // ---------------------------------------------------------------
+    // ---------------------------------------------------------------
+    // 4. PARTITE: una per ogni stato/flusso rilevante dell'app
+    // ---------------------------------------------------------------
+    private suspend fun seedMatches() {
         val matches = linkedMapOf(
 
             // --- PENDING con candidature aperte: mostra la coda di approvazione admin ---
@@ -317,11 +336,13 @@ object FirebaseDataSeeder {
         for ((docId, matchData) in matches) {
             db.collection("matches").document(docId).set(matchData).await()
         }
+    }
 
-        // ---------------------------------------------------------------
-        // 5. NOTIFICHE: pre-popolate così il centro notifiche non è vuoto
-        //    all'apertura della demo (sia lato arbitro demo che lato admin).
-        // ---------------------------------------------------------------
+    // ---------------------------------------------------------------
+    // 5. NOTIFICHE: pre-popolate così il centro notifiche non è vuoto
+    //    all'apertura della demo (sia lato arbitro demo che lato admin).
+    // ---------------------------------------------------------------
+    private suspend fun seedNotifications() {
         val notifications = listOf(
             mapOf(
                 "recipientUid" to DEMO_REFEREE_UID,

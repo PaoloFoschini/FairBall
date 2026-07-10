@@ -6,7 +6,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -37,13 +36,9 @@ fun NotificationsScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text("Notifiche") },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Indietro")
-                    }
-                },
+            BackTopBar(
+                title = "Notifiche",
+                onBack = onBack,
                 actions = {
                     if (!notifications.isNullOrEmpty()) {
                         TextButton(
@@ -65,14 +60,10 @@ fun NotificationsScreen(
     ) { padding ->
         when {
             notifications == null -> {
-                Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator()
-                }
+                LoadingBox(modifier = Modifier.fillMaxSize().padding(padding))
             }
             notifications!!.isEmpty() -> {
-                Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
-                    Text("Nessuna notifica per ora.", color = Color.Gray)
-                }
+                EmptyStateBox("Nessuna notifica per ora.", modifier = Modifier.fillMaxSize().padding(padding))
             }
             else -> {
                 LazyColumn(

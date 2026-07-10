@@ -19,9 +19,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import com.example.fairball.data.FirestoreRepository
 import com.example.fairball.model.Match
 import com.example.fairball.model.Venue
-import com.google.firebase.firestore.FirebaseFirestore
 import org.osmdroid.config.Configuration
 import org.osmdroid.events.MapEventsReceiver
 import org.osmdroid.tileprovider.tilesource.TileSourceFactory
@@ -136,9 +136,7 @@ fun VenueDetailSheet(
 
             when {
                 isLoading -> {
-                    Box(Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) {
-                        CircularProgressIndicator()
-                    }
+                    LoadingBox(modifier = Modifier.fillMaxWidth().padding(24.dp))
                 }
                 matches.isEmpty() -> {
                     Text("Nessuna partita disputata qui finora.", color = Color.Gray)
@@ -156,7 +154,7 @@ fun VenueDetailSheet(
                                 ) {
                                     Column(modifier = Modifier.weight(1f)) {
                                         Text(
-                                            "${teams[match.homeTeamId] ?: match.homeTeamId} vs ${teams[match.awayTeamId] ?: match.awayTeamId}",
+                                            "${teams.nameOf(match.homeTeamId)} vs ${teams.nameOf(match.awayTeamId)}",
                                             fontWeight = FontWeight.Bold
                                         )
                                         match.scheduledAt?.let {
@@ -191,7 +189,6 @@ fun VenuePickerDialog(
     onVenueSelected: (Venue) -> Unit,
     onVenueCreated: (Venue) -> Unit
 ) {
-    val db = FirebaseFirestore.getInstance()
     val userLocation by rememberUserLocation()
     var pendingNewVenuePoint by remember { mutableStateOf<GeoPoint?>(null) }
 
@@ -238,16 +235,7 @@ fun VenuePickerDialog(
             point = point,
             onDismiss = { pendingNewVenuePoint = null },
             onSave = { name, university, address ->
-                val newId = db.collection("venues").document().id
-                val venue = Venue(
-                    id = newId,
-                    name = name,
-                    university = university,
-                    address = address,
-                    latitude = point.latitude,
-                    longitude = point.longitude
-                )
-                db.collection("venues").document(newId).set(venue)
+                val venue = FirestoreRepository.createVenue(name, university, address, point.latitude, point.longitude)
                 onVenueCreated(venue)
                 pendingNewVenuePoint = null
             }

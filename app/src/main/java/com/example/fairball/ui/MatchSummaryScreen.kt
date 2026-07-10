@@ -74,16 +74,7 @@ fun MatchSummaryScreen(
     }
 
     Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Caricamento Documenti") },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Indietro")
-                    }
-                }
-            )
-        }
+        topBar = { BackTopBar(title = "Caricamento Documenti", onBack = onBack) }
     ) { padding ->
         Column(
             modifier = Modifier.fillMaxSize().padding(padding).padding(16.dp).verticalScroll(rememberScrollState()),
@@ -116,7 +107,6 @@ fun MatchSummaryScreen(
                                 photoDistintaB?.toString(),
                                 photoReferto?.toString()
                             )
-                            onFinish()
                             onFinish()
                         }
                     },

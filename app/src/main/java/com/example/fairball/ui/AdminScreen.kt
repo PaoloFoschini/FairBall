@@ -15,9 +15,9 @@ import androidx.compose.ui.unit.dp
 import com.example.fairball.data.AppConfig
 import com.example.fairball.data.FirestoreRepository
 import com.example.fairball.model.Match
-import com.example.fairball.model.Team
 import com.example.fairball.model.User
-import com.example.fairball.model.Venue
+import com.example.fairball.model.UserRole
+import com.example.fairball.model.roleEnum
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -137,11 +137,11 @@ fun RefereeAdminCard(referee: User, onViewProfile: (() -> Unit)? = null) {
                 Text(
                     text = when {
                         isSuperAdmin -> "Superadmin"
-                        referee.role == "admin" -> "Amministratore"
+                        referee.roleEnum == UserRole.ADMIN -> "Amministratore"
                         else -> "Arbitro"
                     },
                     style = MaterialTheme.typography.labelSmall,
-                    color = if (referee.role == "admin" || isSuperAdmin) MaterialTheme.colorScheme.primary else Color.Gray
+                    color = if (referee.roleEnum == UserRole.ADMIN || isSuperAdmin) MaterialTheme.colorScheme.primary else Color.Gray
                 )
             }
 
@@ -178,21 +178,16 @@ fun RefereeAdminCard(referee: User, onViewProfile: (() -> Unit)? = null) {
     }
 
     if (showDeleteConfirm) {
-        AlertDialog(
-            onDismissRequest = { showDeleteConfirm = false },
-            title = { Text("Elimina Arbitro") },
-            text = { Text("Vuoi eliminare definitivamente l'account di ${referee.displayName}? L'operazione è irreversibile.") },
-            confirmButton = {
-                TextButton(onClick = {
-                    scope.launch {
-                        FirestoreRepository.deleteUser(referee.uid)
-                        showDeleteConfirm = false
-                    }
-                }) { Text("ELIMINA", color = Color.Red) }
+        ConfirmDeleteDialog(
+            title = "Elimina Arbitro",
+            message = "Vuoi eliminare definitivamente l'account di ${referee.displayName}? L'operazione è irreversibile.",
+            onConfirm = {
+                scope.launch {
+                    FirestoreRepository.deleteUser(referee.uid)
+                    showDeleteConfirm = false
+                }
             },
-            dismissButton = {
-                TextButton(onClick = { showDeleteConfirm = false }) { Text("ANNULLA") }
-            }
+            onDismiss = { showDeleteConfirm = false }
         )
     }
 }

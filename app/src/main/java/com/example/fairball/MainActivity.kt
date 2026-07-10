@@ -16,7 +16,7 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.example.fairball.data.DataStoreManager
 import com.example.fairball.data.ThemePreference
-import com.example.fairball.data.FirebaseDataSeeder
+// import com.example.fairball.data.FirebaseDataSeeder
 import com.example.fairball.ui.*
 import com.example.fairball.ui.theme.FairBallTheme
 import com.google.firebase.FirebaseApp
@@ -24,18 +24,55 @@ import androidx.compose.runtime.rememberCoroutineScope
 import kotlinx.coroutines.launch
 
 /**
+ * Route della navigazione, centralizzate per evitare stringhe duplicate/refusi
+ * tra le dichiarazioni `composable(route = ...)` e le chiamate `navigateSafe(...)`.
+ */
+private object Routes {
+    const val LOGIN = "login"
+    const val REGISTER = "register"
+    const val HOME = "home/{role}?uid={uid}"
+    const val NOTIFICATIONS = "notifications"
+    const val LEAGUE_REFEREES = "league_referees"
+    const val PROFILE = "profile?uid={uid}"
+    const val CHAMPIONSHIP = "championship"
+    const val MAP = "map"
+    const val MATCH_REFEREE = "match_referee/{matchId}"
+    const val MATCH_SUMMARY = "match_summary/{matchId}"
+    const val MATCH_REPORT = "match_report/{matchId}"
+
+    fun home(role: String, uid: String?) = if (uid != null) "home/$role?uid=$uid" else "home/$role"
+    fun profile(uid: String? = null) = if (uid != null) "profile?uid=$uid" else "profile"
+    fun matchReferee(matchId: String) = "match_referee/$matchId"
+    fun matchSummary(matchId: String) = "match_summary/$matchId"
+    fun matchReport(matchId: String) = "match_report/$matchId"
+}
+
+/**
  * Navigazione tra le schermate.
  */
+private fun NavController.isResumed(): Boolean =
+    currentBackStackEntry?.lifecycle?.currentState == Lifecycle.State.RESUMED
+
 private fun NavController.navigateSafe(route: String, builder: NavOptionsBuilder.() -> Unit = {}) {
-    if (currentBackStackEntry?.lifecycle?.currentState == Lifecycle.State.RESUMED) {
-        navigate(route, builder)
-    }
+    if (isResumed()) navigate(route, builder)
 }
 
 private fun NavController.popBackStackSafe() {
-    if (currentBackStackEntry?.lifecycle?.currentState == Lifecycle.State.RESUMED) {
-        popBackStack()
+    if (isResumed()) popBackStack()
+}
+
+/** Naviga sostituendo l'intero back stack: usato per i redirect post-login/logout. */
+private fun NavController.navigateAndClearBackStack(route: String) {
+    navigateSafe(route) {
+        popUpTo(graph.id) { inclusive = true }
+        launchSingleTop = true
     }
+}
+
+private fun NavController.handleAuthSuccess(role: String, uid: String?) {
+    Session.uid = uid
+    Session.role = role
+    navigateAndClearBackStack(Routes.home(role, uid))
 }
 
 class MainActivity : FragmentActivity() {
@@ -44,7 +81,7 @@ class MainActivity : FragmentActivity() {
 
         try {
             FirebaseApp.initializeApp(this)
-            FirebaseDataSeeder.seedData()
+            // FirebaseDataSeeder.seedData()
         } catch (e: Exception) {
             e.printStackTrace()
         }
@@ -81,37 +118,21 @@ fun FairBallApp(
     val navController = rememberNavController()
 
     key(Session.uid, Session.role) {
-        NavHost(navController = navController, startDestination = "login") {
-            composable("login") {
+        NavHost(navController = navController, startDestination = Routes.LOGIN) {
+            composable(Routes.LOGIN) {
                 LoginScreen(
-                    onLoginSuccess = { role, uid ->
-                        Session.uid = uid
-                        Session.role = role
-                        val destination = if (uid != null) "home/$role?uid=$uid" else "home/$role"
-                        navController.navigateSafe(destination) {
-                            popUpTo(navController.graph.id) { inclusive = true }
-                            launchSingleTop = true
-                        }
-                    },
-                    onNavigateToRegister = { navController.navigateSafe("register") }
+                    onLoginSuccess = { role, uid -> navController.handleAuthSuccess(role, uid) },
+                    onNavigateToRegister = { navController.navigateSafe(Routes.REGISTER) }
                 )
             }
-            composable("register") {
+            composable(Routes.REGISTER) {
                 RegisterScreen(
-                    onRegisterSuccess = { role, uid ->
-                        Session.uid = uid
-                        Session.role = role
-                        val destination = if (uid != null) "home/$role?uid=$uid" else "home/$role"
-                        navController.navigateSafe(destination) {
-                            popUpTo(navController.graph.id) { inclusive = true }
-                            launchSingleTop = true
-                        }
-                    },
+                    onRegisterSuccess = { role, uid -> navController.handleAuthSuccess(role, uid) },
                     onNavigateToLogin = { navController.popBackStackSafe() }
                 )
             }
             composable(
-                route = "home/{role}?uid={uid}",
+                route = Routes.HOME,
                 arguments = listOf(
                     navArgument("role") { type = NavType.StringType },
                     navArgument("uid") { type = NavType.StringType; nullable = true; defaultValue = null }
@@ -120,10 +141,7 @@ fun FairBallApp(
                 val currentRole = Session.role
                 if (currentRole == null) {
                     LaunchedEffect(Unit) {
-                        navController.navigateSafe("login") {
-                            popUpTo(navController.graph.id) { inclusive = true }
-                            launchSingleTop = true
-                        }
+                        navController.navigateAndClearBackStack(Routes.LOGIN)
                     }
                     return@composable
                 }
@@ -131,16 +149,16 @@ fun FairBallApp(
                 HomeScreen(
                     role = currentRole,
                     debugUid = Session.uid,
-                    onViewReferees = { navController.navigateSafe("league_referees") { launchSingleTop = true } },
-                    onViewProfile = { navController.navigateSafe("profile") { launchSingleTop = true } },
-                    onViewRefereeProfile = { refereeId -> navController.navigateSafe("profile?uid=$refereeId") },
-                    onViewChampionship = { navController.navigateSafe("championship") { launchSingleTop = true } },
-                    onViewMap = { navController.navigateSafe("map") { launchSingleTop = true } },
-                    onArbitrateMatch = { matchId -> navController.navigateSafe("match_referee/$matchId") },
-                    onViewNotifications = { navController.navigateSafe("notifications") { launchSingleTop = true } }
+                    onViewReferees = { navController.navigateSafe(Routes.LEAGUE_REFEREES) { launchSingleTop = true } },
+                    onViewProfile = { navController.navigateSafe(Routes.profile()) { launchSingleTop = true } },
+                    onViewRefereeProfile = { refereeId -> navController.navigateSafe(Routes.profile(refereeId)) },
+                    onViewChampionship = { navController.navigateSafe(Routes.CHAMPIONSHIP) { launchSingleTop = true } },
+                    onViewMap = { navController.navigateSafe(Routes.MAP) { launchSingleTop = true } },
+                    onArbitrateMatch = { matchId -> navController.navigateSafe(Routes.matchReferee(matchId)) },
+                    onViewNotifications = { navController.navigateSafe(Routes.NOTIFICATIONS) { launchSingleTop = true } }
                 )
             }
-            composable("notifications") {
+            composable(Routes.NOTIFICATIONS) {
                 val uid = Session.uid
                 if (uid == null) {
                     LaunchedEffect(Unit) { navController.popBackStackSafe() }
@@ -148,18 +166,18 @@ fun FairBallApp(
                     NotificationsScreen(
                         uid = uid,
                         onBack = { navController.popBackStackSafe() },
-                        onOpenMatch = { matchId -> navController.navigateSafe("match_report/$matchId") }
+                        onOpenMatch = { matchId -> navController.navigateSafe(Routes.matchReport(matchId)) }
                     )
                 }
             }
-            composable("league_referees") {
+            composable(Routes.LEAGUE_REFEREES) {
                 LeagueRefereesScreen(
                     onBack = { navController.popBackStackSafe() },
-                    onRefereeClick = { refereeId -> navController.navigateSafe("profile?uid=$refereeId") }
+                    onRefereeClick = { refereeId -> navController.navigateSafe(Routes.profile(refereeId)) }
                 )
             }
             composable(
-                route = "profile?uid={uid}",
+                route = Routes.PROFILE,
                 arguments = listOf(
                     navArgument("uid") { type = NavType.StringType; nullable = true; defaultValue = null }
                 )
@@ -168,52 +186,52 @@ fun FairBallApp(
                 ProfileScreen(
                     refereeId = uid,
                     onBack = { navController.popBackStackSafe() },
-                    onViewMatchReport = { matchId -> navController.navigateSafe("match_report/$matchId") },
+                    onViewMatchReport = { matchId -> navController.navigateSafe(Routes.matchReport(matchId)) },
                     onLogoutSuccess = {
-                        Session.uid = null
-                        Session.role = null
-                        navController.navigateSafe("login") {
-                            popUpTo(navController.graph.id) { inclusive = true }
-                            launchSingleTop = true
-                        }
+                        Session.clear()
+                        navController.navigateAndClearBackStack(Routes.LOGIN)
                     },
                     currentTheme = currentTheme,
                     onThemeChange = onThemeChange
                 )
             }
-            composable("championship") {
+            composable(Routes.CHAMPIONSHIP) {
                 ChampionshipScreen(
                     onBack = { navController.popBackStackSafe() },
-                    onViewReport = { matchId -> navController.navigateSafe("match_report/$matchId") }
+                    onViewReport = { matchId -> navController.navigateSafe(Routes.matchReport(matchId)) }
                 )
             }
-            composable("map") {
+            composable(Routes.MAP) {
                 MapScreen(onBack = { navController.popBackStackSafe() })
             }
             composable(
-                route = "match_referee/{matchId}",
+                route = Routes.MATCH_REFEREE,
                 arguments = listOf(navArgument("matchId") { type = NavType.StringType })
             ) { backStackEntry ->
                 val matchId = backStackEntry.arguments?.getString("matchId") ?: ""
                 MatchRefereeScreen(
                     matchId = matchId,
                     onBack = { navController.popBackStackSafe() },
-                    onEndMatch = { id -> navController.navigateSafe("match_summary/$id") }
+                    onEndMatch = { id -> navController.navigateSafe(Routes.matchSummary(id)) }
                 )
             }
             composable(
-                route = "match_summary/{matchId}",
+                route = Routes.MATCH_SUMMARY,
                 arguments = listOf(navArgument("matchId") { type = NavType.StringType })
             ) { backStackEntry ->
                 val matchId = backStackEntry.arguments?.getString("matchId") ?: ""
                 MatchSummaryScreen(
                     matchId = matchId,
-                    onFinish = { navController.popBackStackSafe() },
+                    onFinish = {
+                        val role = Session.role ?: "arbitro"
+                        val uid = Session.uid
+                        navController.navigateAndClearBackStack(Routes.home(role, uid))
+                    },
                     onBack = { navController.popBackStackSafe() }
                 )
             }
             composable(
-                route = "match_report/{matchId}",
+                route = Routes.MATCH_REPORT,
                 arguments = listOf(navArgument("matchId") { type = NavType.StringType })
             ) { backStackEntry ->
                 val matchId = backStackEntry.arguments?.getString("matchId") ?: ""

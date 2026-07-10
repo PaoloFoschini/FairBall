@@ -11,7 +11,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import com.example.fairball.model.Match
+import com.example.fairball.model.MatchStatus
 import com.example.fairball.model.User
+import com.example.fairball.model.statusEnum
 import java.util.*
 
 /**
@@ -41,7 +43,7 @@ data class RefereeStat(
  */
 fun calculateRefereeStats(user: User, allMatches: List<Match>): RefereeStat {
     val myFinishedMatches = allMatches.filter {
-        (it.refereeId == user.uid || it.coRefereeId == user.uid) && it.status == "finished"
+        (it.refereeId == user.uid || it.coRefereeId == user.uid) && it.statusEnum == MatchStatus.FINISHED
     }
     val totalMatches = myFinishedMatches.size
     val badges = mutableListOf<Badge>()

@@ -13,23 +13,16 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import com.example.fairball.data.ThemePreference
 
-private val DefaultPurple80 = Color(0xFFD0BCFF)
-private val DefaultPurpleGrey80 = Color(0xFFCCC2DC)
-private val DefaultPink80 = Color(0xFFEFB8C8)
-private val DefaultPurple40 = Color(0xFF6650a4)
-private val DefaultPurpleGrey40 = Color(0xFF625b71)
-private val DefaultPink40 = Color(0xFF7D5260)
-
 private val DarkColorScheme = darkColorScheme(
-    primary = DefaultPurple80,
-    secondary = DefaultPurpleGrey80,
-    tertiary = DefaultPink80
+    primary = Purple80,
+    secondary = PurpleGrey80,
+    tertiary = Pink80
 )
 
 private val LightColorScheme = lightColorScheme(
-    primary = DefaultPurple40,
-    secondary = DefaultPurpleGrey40,
-    tertiary = DefaultPink40
+    primary = Purple40,
+    secondary = PurpleGrey40,
+    tertiary = Pink40
 )
 
 private val CustomLightColorScheme = lightColorScheme(

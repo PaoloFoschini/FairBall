@@ -5,8 +5,6 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -20,7 +18,6 @@ import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.example.fairball.data.FirestoreRepository
 import com.example.fairball.model.Match
-import java.text.SimpleDateFormat
 import java.util.Locale
 
 /**
@@ -47,8 +44,8 @@ fun MatchReportScreen(matchId: String, onClose: () -> Unit) {
         val m = allMatches!!.find { it.id == matchId }
         match = m
         if (m != null) {
-            homeTeamName = allTeams!!.find { it.id == m.homeTeamId }?.name ?: m.homeTeamId
-            awayTeamName = allTeams!!.find { it.id == m.awayTeamId }?.name ?: m.awayTeamId
+            homeTeamName = allTeams!!.nameOf(m.homeTeamId)
+            awayTeamName = allTeams!!.nameOf(m.awayTeamId)
             refereeName = allUsers!!.find { it.uid == m.refereeId }?.displayName ?: "Non assegnato"
             venueName = allVenues!!.find { it.id == m.venueId }?.name ?: m.venueId
             category = m.category
@@ -57,27 +54,18 @@ fun MatchReportScreen(matchId: String, onClose: () -> Unit) {
     }
 
     Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Dettaglio Partita") },
-                navigationIcon = {
-                    IconButton(onClick = onClose) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Indietro")
-                    }
-                }
-            )
-        }
+        topBar = { BackTopBar(title = "Dettaglio Partita", onBack = onClose) }
     ) { padding ->
         when {
             isLoading -> {
-                Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator()
-                }
+                LoadingBox(modifier = Modifier.fillMaxSize().padding(padding))
             }
             match == null -> {
-                Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
-                    Text("Dati partita non trovati.")
-                }
+                EmptyStateBox(
+                    "Dati partita non trovati.",
+                    modifier = Modifier.fillMaxSize().padding(padding),
+                    textColor = Color.Unspecified
+                )
             }
             else -> {
                 val m = match!!
@@ -100,9 +88,7 @@ fun MatchReportScreen(matchId: String, onClose: () -> Unit) {
                             )
                             Spacer(Modifier.height(6.dp))
 
-                            val dateStr = m.scheduledAt?.toDate()?.let {
-                                SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.ITALY).format(it)
-                            } ?: "Data non disponibile"
+                            val dateStr = m.scheduledAt?.let { "${it.toFormattedDate()} ${it.toFormattedTime()}" } ?: "Data non disponibile"
 
                             Text(
                                 text = "Data: $dateStr",

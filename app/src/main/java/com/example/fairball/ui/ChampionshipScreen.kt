@@ -3,8 +3,6 @@ package com.example.fairball.ui
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -43,29 +41,18 @@ fun ChampionshipScreen(
     }
 
     Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Campionato") },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Indietro")
-                    }
-                }
-            )
-        }
+        topBar = { BackTopBar(title = "Campionato", onBack = onBack) }
     ) { padding ->
         when {
             isLoading -> {
-                Box(
-                    modifier = Modifier.fillMaxSize().padding(padding),
-                    contentAlignment = Alignment.Center
-                ) { CircularProgressIndicator() }
+                LoadingBox(modifier = Modifier.fillMaxSize().padding(padding))
             }
             pastMatches.isEmpty() -> {
-                Box(
+                EmptyStateBox(
+                    "Nessuna partita conclusa.",
                     modifier = Modifier.fillMaxSize().padding(padding),
-                    contentAlignment = Alignment.Center
-                ) { Text("Nessuna partita conclusa.") }
+                    textColor = Color.Unspecified
+                )
             }
             else -> {
                 LazyColumn(
@@ -125,12 +112,12 @@ fun ChampionshipPastMatchItem(
             ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        teams[match.homeTeamId] ?: match.homeTeamId,
+                        teams.nameOf(match.homeTeamId),
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.Bold
                     )
                     Text(
-                        teams[match.awayTeamId] ?: match.awayTeamId,
+                        teams.nameOf(match.awayTeamId),
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.Bold
                     )

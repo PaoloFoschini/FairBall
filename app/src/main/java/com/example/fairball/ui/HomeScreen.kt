@@ -23,9 +23,14 @@ import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import com.example.fairball.data.FirestoreRepository
 import com.example.fairball.model.Match
+import com.example.fairball.model.MatchStatus
 import com.example.fairball.model.Team
 import com.example.fairball.model.User
+import com.example.fairball.model.UserRole
 import com.example.fairball.model.Venue
+import com.example.fairball.model.roleEnum
+import com.example.fairball.model.statusEnum
+import com.example.fairball.ui.theme.AppColors
 import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.launch
 
@@ -92,7 +97,7 @@ fun HomeScreen(
     }
 
     val isLoading = allMatches == null || teamsList == null || venuesList == null ||
-            (role == "admin" && (allReferees == null || allUsers == null))
+            (UserRole.fromRaw(role) == UserRole.ADMIN && (allReferees == null || allUsers == null))
 
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
@@ -120,7 +125,7 @@ fun HomeScreen(
         }
     ) { padding ->
         Column(modifier = Modifier.fillMaxSize().padding(padding).padding(16.dp)) {
-            Text("Benvenuto, ${if (role == "admin") "Amministratore" else "Arbitro"}", style = MaterialTheme.typography.headlineSmall)
+            Text("Benvenuto, ${if (UserRole.fromRaw(role) == UserRole.ADMIN) "Amministratore" else "Arbitro"}", style = MaterialTheme.typography.headlineSmall)
             Spacer(modifier = Modifier.height(16.dp))
 
             when {
@@ -129,7 +134,7 @@ fun HomeScreen(
                         CircularProgressIndicator()
                     }
                 }
-                role == "admin" -> {
+                UserRole.fromRaw(role) == UserRole.ADMIN -> {
                     AdminHomeContent(
                         allMatches = allMatches!!,
                         allReferees = allReferees!!,
@@ -159,119 +164,6 @@ fun HomeScreen(
 }
 
 /**
- * Mappa degli stati delle gare.
- */
-val statusLabels = mapOf(
-    "pending" to "In Attesa",
-    "assigned" to "Assegnata",
-    "waiting_approval" to "Da Verificare",
-    "finished" to "Conclusa",
-    "rejected" to "Rifiutata"
-)
-
-/**
- * Bottone per filtri.
- */
-@Composable
-fun CompactFilterChip(label: String, selected: Boolean, onClick: () -> Unit) {
-    FilterChip(
-        selected = selected,
-        onClick = onClick,
-        label = { Text(label, style = MaterialTheme.typography.labelSmall) },
-        modifier = Modifier.height(30.dp)
-    )
-}
-
-/**
- * Etichetta di filtro.
- */
-@Composable
-private fun FilterGroupLabel(text: String) {
-    Text(
-        text,
-        style = MaterialTheme.typography.labelSmall,
-        fontWeight = FontWeight.Bold,
-        color = MaterialTheme.colorScheme.primary,
-        modifier = Modifier.padding(end = 2.dp)
-    )
-}
-
-/**
- * Lista di filtri per tipologia di gara.
- */
-@Composable
-fun CategoryFilterRow(
-    categories: List<String>,
-    selected: String?,
-    onSelect: (String?) -> Unit
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-        horizontalArrangement = Arrangement.spacedBy(6.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        FilterGroupLabel("Categoria:")
-        CompactFilterChip("Tutte", selected == null) { onSelect(null) }
-        categories.forEach { category ->
-            CompactFilterChip(category, selected == category) {
-                onSelect(if (selected == category) null else category)
-            }
-        }
-    }
-}
-
-/**
- * Lista di filtri per stato della partita.
- */
-@Composable
-fun StatusFilterRow(
-    statuses: List<String>,
-    selected: String?,
-    onSelect: (String?) -> Unit
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-        horizontalArrangement = Arrangement.spacedBy(6.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        FilterGroupLabel("Stato:")
-        CompactFilterChip("Tutti", selected == null) { onSelect(null) }
-        statuses.forEach { status ->
-            CompactFilterChip(statusLabels[status] ?: status.replaceFirstChar { it.uppercase() }, selected == status) {
-                onSelect(if (selected == status) null else status)
-            }
-        }
-    }
-}
-
-/**
- * Filtro di ricerca.
- */
-@Composable
-fun SearchField(
-    query: String,
-    onQueryChange: (String) -> Unit,
-    placeholder: String
-) {
-    OutlinedTextField(
-        value = query,
-        onValueChange = onQueryChange,
-        modifier = Modifier.fillMaxWidth().height(52.dp),
-        textStyle = MaterialTheme.typography.bodyMedium,
-        placeholder = { Text(placeholder, style = MaterialTheme.typography.bodyMedium) },
-        leadingIcon = { Icon(Icons.Default.Search, null, modifier = Modifier.size(18.dp)) },
-        trailingIcon = {
-            if (query.isNotEmpty()) {
-                IconButton(onClick = { onQueryChange("") }, modifier = Modifier.size(32.dp)) {
-                    Icon(Icons.Default.Clear, null, modifier = Modifier.size(16.dp))
-                }
-            }
-        },
-        singleLine = true
-    )
-}
-
-/**
  * Pagina home di amministrazione.
  */
 @Composable
@@ -293,8 +185,8 @@ fun ColumnScope.AdminHomeContent(
     var utentiRoleFilter by remember { mutableStateOf<String?>(null) }
     var utentiSearchQuery by remember { mutableStateOf("") }
 
-    val pendingApps = allMatches.filter { it.status == "pending" && it.refereeApplications.isNotEmpty() }
-    val waitingAppr = allMatches.filter { it.status == "waiting_approval" }
+    val pendingApps = allMatches.filter { it.statusEnum == MatchStatus.PENDING && it.refereeApplications.isNotEmpty() }
+    val waitingAppr = allMatches.filter { it.statusEnum == MatchStatus.WAITING_APPROVAL }
     val totalTasks = pendingApps.size + waitingAppr.size
 
     TabRow(selectedTabIndex = selectedTab) {
@@ -321,9 +213,9 @@ fun ColumnScope.AdminHomeContent(
                 }
                 LazyColumn(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     if (totalTasks == 0) {
-                        item { Box(Modifier.fillParentMaxSize(), contentAlignment = Alignment.Center) { Text("Nessuna attività in sospeso.", color = Color.Gray) } }
+                        item { EmptyStateBox("Nessuna attività in sospeso.", modifier = Modifier.fillParentMaxSize()) }
                     } else if (filteredTotalTasks == 0) {
-                        item { Box(Modifier.fillParentMaxSize(), contentAlignment = Alignment.Center) { Text("Nessuna attività per questa categoria.", color = Color.Gray) } }
+                        item { EmptyStateBox("Nessuna attività per questa categoria.", modifier = Modifier.fillParentMaxSize()) }
                     }
                     if (filteredPendingApps.isNotEmpty()) {
                         item { HomeSectionTitle("Richieste di Prenotazione", Icons.Default.AssignmentInd) }
@@ -348,8 +240,8 @@ fun ColumnScope.AdminHomeContent(
                 .filter { gareCategoryFilter == null || it.category == gareCategoryFilter }
                 .filter { match ->
                     if (gareSearchQuery.isBlank()) return@filter true
-                    val homeName = teamsList.find { it.id == match.homeTeamId }?.name ?: match.homeTeamId
-                    val awayName = teamsList.find { it.id == match.awayTeamId }?.name ?: match.awayTeamId
+                    val homeName = teamsList.nameOf(match.homeTeamId)
+                    val awayName = teamsList.nameOf(match.awayTeamId)
                     homeName.contains(gareSearchQuery, ignoreCase = true) ||
                             awayName.contains(gareSearchQuery, ignoreCase = true)
                 }
@@ -369,7 +261,7 @@ fun ColumnScope.AdminHomeContent(
                 Box(modifier = Modifier.weight(1f)) {
                     LazyColumn(modifier = Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         if (filteredMatches.isEmpty()) {
-                            item { Box(Modifier.fillParentMaxSize(), contentAlignment = Alignment.Center) { Text("Nessuna gara trovata.", color = Color.Gray) } }
+                            item { EmptyStateBox("Nessuna gara trovata.", modifier = Modifier.fillParentMaxSize()) }
                         }
                         items(filteredMatches) {
                             HomeMatchAdminCard(it, allReferees, teamsList, venuesList)
@@ -404,8 +296,8 @@ fun ColumnScope.AdminHomeContent(
             val filteredUsers = allUsers
                 .filter { user ->
                     when (utentiRoleFilter) {
-                        "admin" -> user.role == "admin"
-                        "referee" -> user.role != "admin"
+                        "admin" -> user.roleEnum == UserRole.ADMIN
+                        "referee" -> user.roleEnum != UserRole.ADMIN
                         else -> true
                     }
                 }
@@ -435,7 +327,7 @@ fun ColumnScope.AdminHomeContent(
                 Spacer(Modifier.height(6.dp))
                 LazyColumn(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     if (filteredUsers.isEmpty()) {
-                        item { Box(Modifier.fillParentMaxSize(), contentAlignment = Alignment.Center) { Text("Nessun utente trovato.", color = Color.Gray) } }
+                        item { EmptyStateBox("Nessun utente trovato.", modifier = Modifier.fillParentMaxSize()) }
                     }
                     items(filteredUsers, key = { it.uid }) { user ->
                         RefereeAdminCard(user, onViewProfile = { onViewRefereeProfile(user.uid) })
@@ -463,11 +355,11 @@ fun ColumnScope.RefereeHomeContent(
     var availableSearchQuery by remember { mutableStateOf("") }
 
     val myMatches = allMatches
-        .filter { (it.refereeId == effectiveUid || it.coRefereeId == effectiveUid) && it.status == "assigned" }
+        .filter { (it.refereeId == effectiveUid || it.coRefereeId == effectiveUid) && it.statusEnum == MatchStatus.ASSIGNED }
         .sortedBy { it.scheduledAt?.seconds ?: 0L }
 
     val availableMatchesAll = allMatches
-        .filter { it.status == "pending" && !it.refereeApplications.contains(effectiveUid) }
+        .filter { it.statusEnum == MatchStatus.PENDING && !it.refereeApplications.contains(effectiveUid) }
         .sortedBy { it.scheduledAt?.seconds ?: 0L }
 
     val availableCategories = availableMatchesAll.map { it.category }.distinct().sorted()
@@ -476,16 +368,17 @@ fun ColumnScope.RefereeHomeContent(
         .filter { availableCategoryFilter == null || it.category == availableCategoryFilter }
         .filter { match ->
             if (availableSearchQuery.isBlank()) return@filter true
-            val homeName = teamsMap[match.homeTeamId] ?: match.homeTeamId
-            val awayName = teamsMap[match.awayTeamId] ?: match.awayTeamId
+            val homeName = teamsMap.nameOf(match.homeTeamId)
+            val awayName = teamsMap.nameOf(match.awayTeamId)
             homeName.contains(availableSearchQuery, ignoreCase = true) ||
                     awayName.contains(availableSearchQuery, ignoreCase = true)
         }
 
-    val myPendingApps = allMatches.filter { it.status == "pending" && it.refereeApplications.contains(effectiveUid) }
+    val myPendingApps = allMatches.filter { it.statusEnum == MatchStatus.PENDING && it.refereeApplications.contains(effectiveUid) }
 
     val myWaitingAppr = allMatches.filter {
-        (it.status == "waiting_approval" || it.status == "rejected") && it.refereeId == effectiveUid
+        // "rejected" non ha un caso MatchStatus corrispondente: confronto stringa intenzionale.
+        (it.statusEnum == MatchStatus.WAITING_APPROVAL || it.status == "rejected") && it.refereeId == effectiveUid
     }
 
     LazyColumn(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -516,7 +409,7 @@ fun ColumnScope.RefereeHomeContent(
                         scope.launch {
                             FirestoreRepository.updateMatch(
                                 matchId = match.id,
-                                fields = mapOf("refereeId" to null, "status" to "pending")
+                                fields = mapOf("refereeId" to null, "status" to MatchStatus.PENDING.raw)
                             )
                         }
                     }
@@ -531,7 +424,7 @@ fun ColumnScope.RefereeHomeContent(
                     Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                "${teamsMap[match.homeTeamId] ?: match.homeTeamId} vs ${teamsMap[match.awayTeamId] ?: match.awayTeamId}",
+                                "${teamsMap.nameOf(match.homeTeamId)} vs ${teamsMap.nameOf(match.awayTeamId)}",
                                 fontWeight = FontWeight.Bold
                             )
                             Text("Richiesta di prenotazione inviata", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
@@ -558,13 +451,13 @@ fun ColumnScope.RefereeHomeContent(
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
-                                    "${teamsMap[match.homeTeamId] ?: match.homeTeamId} vs ${teamsMap[match.awayTeamId] ?: match.awayTeamId}",
+                                    "${teamsMap.nameOf(match.homeTeamId)} vs ${teamsMap.nameOf(match.awayTeamId)}",
                                     fontWeight = FontWeight.Bold
                                 )
                                 if (match.status == "rejected") {
                                     Text("❌ MODIFICHE RICHIESTE", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold)
                                 } else {
-                                    Text("Risultato in attesa di approvazione admin", style = MaterialTheme.typography.labelSmall, color = Color(0xFFFFA000))
+                                    Text("Risultato in attesa di approvazione admin", style = MaterialTheme.typography.labelSmall, color = AppColors.PendingApprovalAmber)
                                 }
                             }
 
@@ -573,7 +466,7 @@ fun ColumnScope.RefereeHomeContent(
                                     Text("Modifica")
                                 }
                             } else {
-                                Icon(Icons.Default.Schedule, null, tint = Color(0xFFFFA000))
+                                Icon(Icons.Default.Schedule, null, tint = AppColors.PendingApprovalAmber)
                             }
                         }
 

@@ -8,14 +8,12 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.fairball.data.FirestoreRepository
@@ -63,21 +61,10 @@ fun LeagueRefereesScreen(
         }
 
     Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Classifica Arbitri") },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Indietro")
-                    }
-                }
-            )
-        }
+        topBar = { BackTopBar(title = "Classifica Arbitri", onBack = onBack) }
     ) { padding ->
         if (isLoading) {
-            Box(modifier = Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator()
-            }
+            LoadingBox(modifier = Modifier.fillMaxSize().padding(padding))
         } else {
             Column(modifier = Modifier.fillMaxSize().padding(padding).padding(16.dp)) {
                 SearchField(searchQuery, { searchQuery = it }, "Cerca arbitro per nome")
@@ -102,9 +89,7 @@ fun LeagueRefereesScreen(
                 Spacer(Modifier.height(8.dp))
 
                 if (filteredStats.isEmpty()) {
-                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Text("Nessun arbitro trovato.", color = Color.Gray)
-                    }
+                    EmptyStateBox("Nessun arbitro trovato.")
                 } else {
                     LazyColumn(
                         modifier = Modifier.fillMaxSize(),

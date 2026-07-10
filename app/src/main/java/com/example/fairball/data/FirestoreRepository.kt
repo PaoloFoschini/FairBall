@@ -1,70 +1,48 @@
 package com.example.fairball.data
 
 import com.example.fairball.model.Match
+import com.example.fairball.model.MatchStatus
 import com.example.fairball.model.Notification
 import com.example.fairball.model.NotificationType
 import com.example.fairball.model.Team
 import com.example.fairball.model.User
 import com.example.fairball.model.Venue
 import com.google.firebase.Timestamp
+import com.google.firebase.firestore.DocumentReference
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.Query
 import com.google.firebase.firestore.ktx.snapshots
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.tasks.await
-import java.util.Calendar
 
 object FirestoreRepository {
 
     private val db = FirebaseFirestore.getInstance()
 
+    private inline fun <reified T : Any> queryFlow(
+        query: Query,
+        crossinline idAssigner: (T, String) -> T
+    ): Flow<List<T>> = query.snapshots().map { snapshot ->
+        snapshot.documents.mapNotNull { doc -> doc.toObject(T::class.java)?.let { idAssigner(it, doc.id) } }
+    }
+
     fun matchesFlow(): Flow<List<Match>> =
-        db.collection("matches")
-            .snapshots()
-            .map { snapshot ->
-                snapshot.documents.mapNotNull { doc ->
-                    doc.toObject(Match::class.java)?.copy(id = doc.id)
-                }
-            }
+        queryFlow(db.collection("matches")) { m, id -> m.copy(id = id) }
 
     fun teamsFlow(): Flow<List<Team>> =
-        db.collection("teams")
-            .snapshots()
-            .map { snapshot ->
-                snapshot.documents.mapNotNull { doc ->
-                    doc.toObject(Team::class.java)?.copy(id = doc.id)
-                }
-            }
+        queryFlow(db.collection("teams")) { t, id -> t.copy(id = id) }
 
     fun venuesFlow(): Flow<List<Venue>> =
-        db.collection("venues")
-            .snapshots()
-            .map { snapshot ->
-                snapshot.documents.mapNotNull { doc ->
-                    doc.toObject(Venue::class.java)?.copy(id = doc.id)
-                }
-            }
+        queryFlow(db.collection("venues")) { v, id -> v.copy(id = id) }
 
     fun refereesFlow(): Flow<List<User>> =
-        db.collection("users")
-            .whereEqualTo("role", "referee")
-            .snapshots()
-            .map { snapshot ->
-                snapshot.documents.mapNotNull { doc ->
-                    doc.toObject(User::class.java)?.copy(uid = doc.id)
-                }
-            }
+        queryFlow(db.collection("users").whereEqualTo("role", "referee")) { u, id -> u.copy(uid = id) }
 
     fun usersFlow(): Flow<List<User>> =
-        db.collection("users")
-            .snapshots()
-            .map { snapshot ->
-                snapshot.documents.mapNotNull { doc ->
-                    doc.toObject(User::class.java)?.copy(uid = doc.id)
-                }
-            }
+        queryFlow(db.collection("users")) { u, id -> u.copy(uid = id) }
 
     fun notificationsFlow(uid: String): Flow<List<Notification>> =
         db.collection("notifications")
@@ -111,13 +89,13 @@ object FirestoreRepository {
         batch.commit().await()
     }
 
-    private suspend fun createNotification(
+    private fun buildNotification(
         recipientUid: String,
         type: String,
         title: String,
         message: String,
-        relatedMatchId: String? = null
-    ) {
+        relatedMatchId: String?
+    ): Pair<DocumentReference, Notification> {
         val docRef = db.collection("notifications").document()
         val notification = Notification(
             id = docRef.id,
@@ -129,61 +107,65 @@ object FirestoreRepository {
             read = false,
             createdAt = Timestamp.now()
         )
+        return docRef to notification
+    }
+
+    private suspend fun createNotification(
+        recipientUid: String,
+        type: String,
+        title: String,
+        message: String,
+        relatedMatchId: String? = null
+    ) {
+        val (docRef, notification) = buildNotification(recipientUid, type, title, message, relatedMatchId)
         docRef.set(notification).await()
     }
 
-    private suspend fun notifyAdmins(type: String, title: String, message: String, relatedMatchId: String? = null) {
-        val admins = db.collection("users").whereEqualTo("role", "admin").get().await()
+    private suspend fun notifyUsersWithRole(
+        role: String,
+        type: String,
+        title: String,
+        message: String,
+        relatedMatchId: String?
+    ) {
+        val recipients = db.collection("users").whereEqualTo("role", role).get().await()
         val batch = db.batch()
-        for (doc in admins.documents) {
-            val docRef = db.collection("notifications").document()
-            val notification = Notification(
-                id = docRef.id,
-                recipientUid = doc.id,
-                type = type,
-                title = title,
-                message = message,
-                relatedMatchId = relatedMatchId,
-                read = false,
-                createdAt = Timestamp.now()
-            )
+        for (doc in recipients.documents) {
+            val (docRef, notification) = buildNotification(doc.id, type, title, message, relatedMatchId)
             batch.set(docRef, notification)
         }
         batch.commit().await()
     }
 
-    private suspend fun notifyAllReferees(type: String, title: String, message: String, relatedMatchId: String? = null) {
-        val referees = db.collection("users").whereEqualTo("role", "referee").get().await()
-        val batch = db.batch()
-        for (doc in referees.documents) {
-            val docRef = db.collection("notifications").document()
-            val notification = Notification(
-                id = docRef.id,
-                recipientUid = doc.id,
-                type = type,
-                title = title,
-                message = message,
-                relatedMatchId = relatedMatchId,
-                read = false,
-                createdAt = Timestamp.now()
-            )
-            batch.set(docRef, notification)
-        }
-        batch.commit().await()
+    private suspend fun notifyAdmins(type: String, title: String, message: String, relatedMatchId: String? = null) =
+        notifyUsersWithRole("admin", type, title, message, relatedMatchId)
+
+    private suspend fun notifyAllReferees(type: String, title: String, message: String, relatedMatchId: String? = null) =
+        notifyUsersWithRole("referee", type, title, message, relatedMatchId)
+
+    private suspend fun fetchNameMap(collectionName: String, field: String): Map<String, String> =
+        db.collection(collectionName).get().await()
+            .documents.associate { it.id to (it.getString(field) ?: it.id) }
+
+    suspend fun fetchTeamNameMap(): Map<String, String> = fetchNameMap("teams", "name")
+
+    suspend fun fetchUserNameMap(): Map<String, String> = fetchNameMap("users", "displayName")
+
+    /** Risolve i nomi squadra home/away di [match] tramite la mappa [teamNames], con fallback all'id. */
+    private fun teamNamesFor(match: Match?, teamNames: Map<String, String>): Pair<String, String> {
+        val homeName = match?.let { teamNames[it.homeTeamId] ?: it.homeTeamId } ?: ""
+        val awayName = match?.let { teamNames[it.awayTeamId] ?: it.awayTeamId } ?: ""
+        return homeName to awayName
     }
 
-    suspend fun fetchTeamNameMap(): Map<String, String> =
-        db.collection("teams").get().await()
-            .documents.associate { it.id to (it.getString("name") ?: it.id) }
-
-    suspend fun fetchUserNameMap(): Map<String, String> =
-        db.collection("users").get().await()
-            .documents.associate { it.id to (it.getString("displayName") ?: it.id) }
+    private suspend fun getMatch(matchId: String): Match? =
+        db.collection("matches").document(matchId).get().await()
+            .toObject(Match::class.java)?.copy(id = matchId)
 
     suspend fun fetchFinishedMatchesAtVenue(venueId: String): List<Match> =
         db.collection("matches")
             .whereEqualTo("venueId", venueId)
-            .whereEqualTo("status", "finished")
+            .whereEqualTo("status", MatchStatus.FINISHED.raw)
             .get().await()
             .documents.mapNotNull { it.toObject(Match::class.java)?.copy(id = it.id) }
 
@@ -218,16 +200,14 @@ object FirestoreRepository {
         val updates = mutableMapOf<String, Any?>(field to refereeUid)
         if (!isCoReferee) {
             updates["assignedAt"] = Timestamp.now()
-            updates["status"] = "assigned"
+            updates["status"] = MatchStatus.ASSIGNED.raw
             updates["refereeApplications"] = emptyList<String>()
         }
         db.collection("matches").document(matchId).update(updates).await()
 
         val teamNames = fetchTeamNameMap()
-        val matchSnapshot = db.collection("matches").document(matchId).get().await()
-        val match = matchSnapshot.toObject(Match::class.java)
-        val homeName = match?.let { teamNames[it.homeTeamId] ?: it.homeTeamId } ?: ""
-        val awayName = match?.let { teamNames[it.awayTeamId] ?: it.awayTeamId } ?: ""
+        val match = getMatch(matchId)
+        val (homeName, awayName) = teamNamesFor(match, teamNames)
         val roleLabel = if (isCoReferee) "co-arbitro" else "arbitro"
 
         createNotification(
@@ -246,7 +226,7 @@ object FirestoreRepository {
             updates["coRefereeId"] = null
         } else {
             updates["refereeId"] = null
-            updates["status"] = "pending"
+            updates["status"] = MatchStatus.PENDING.raw
         }
 
         db.collection("matches").document(matchId).update(updates).await()
@@ -272,13 +252,11 @@ object FirestoreRepository {
     }
 
     suspend fun approveMatch(matchId: String) {
-        db.collection("matches").document(matchId).update("status", "finished").await()
+        db.collection("matches").document(matchId).update("status", MatchStatus.FINISHED.raw).await()
 
-        val matchSnapshot = db.collection("matches").document(matchId).get().await()
-        val match = matchSnapshot.toObject(Match::class.java)
+        val match = getMatch(matchId)
         val teamNames = fetchTeamNameMap()
-        val homeName = match?.let { teamNames[it.homeTeamId] ?: it.homeTeamId } ?: ""
-        val awayName = match?.let { teamNames[it.awayTeamId] ?: it.awayTeamId } ?: ""
+        val (homeName, awayName) = teamNamesFor(match, teamNames)
         val message = "Il referto di $homeName vs $awayName è stato approvato ed è ora visibile nella pagina del campionato."
 
         match?.refereeId?.let { uid ->
@@ -317,12 +295,14 @@ object FirestoreRepository {
     suspend fun rejectMatchReport(matchId: String, comment: String) {
         db.collection("matches").document(matchId).update(
             mapOf(
+                // "rejected" non ha un caso MatchStatus corrispondente: confronto/valore
+                // stringa intenzionale, vedi model/MatchStatus.kt.
                 "status" to "rejected",
                 "adminComment" to comment
             )
         ).await()
 
-        val match = db.collection("matches").document(matchId).get().await().toObject(Match::class.java)
+        val match = getMatch(matchId)
         match?.refereeId?.let { uid ->
             createNotification(
                 recipientUid = uid,
@@ -340,7 +320,7 @@ object FirestoreRepository {
                 "photoDistintaA" to photoA,
                 "photoDistintaB" to photoB,
                 "photoReferto" to photoRef,
-                "status" to "waiting_approval",
+                "status" to MatchStatus.WAITING_APPROVAL.raw,
                 "adminComment" to null
             )
         ).await()
@@ -353,93 +333,41 @@ object FirestoreRepository {
         )
     }
 
-    suspend fun resetAndSeedMatches() {
-        val matchesRef = db.collection("matches")
-        val notificationsRef = db.collection("notifications")
-
+    /**
+     * Scrive nella sotto-collezione legacy `users/{uid}/notifications`, un percorso diverso
+     * da quello letto da [notificationsFlow] (collezione root `notifications`). Comportamento
+     * preesistente preservato as-is: fire-and-forget, nessun `.await()`, come nell'originale.
+     */
+    fun writeLegacyAssignedSubcollectionNotification(refereeUid: String, matchId: String, message: String) {
+        val notificationId = java.util.UUID.randomUUID().toString()
+        val data = mapOf(
+            "id" to notificationId,
+            "title" to "Gara Assegnata!",
+            "message" to message,
+            "type" to NotificationType.ASSIGNED,
+            "relatedMatchId" to matchId,
+            "read" to false
+        )
         try {
-            val snapshot = matchesRef.get().await()
-            for (doc in snapshot.documents) {
-                doc.reference.delete().await()
-            }
-
-            // Le notifiche fanno riferimento a matchId che stiamo per cancellare:
-            // se non le ripuliamo restano per sempre, anche riferite a partite inesistenti.
-            val notifSnapshot = notificationsRef.get().await()
-            notifSnapshot.documents.chunked(450).forEach { chunk ->
-                val batch = db.batch()
-                chunk.forEach { doc -> batch.delete(doc.reference) }
-                batch.commit().await()
-            }
+            db.collection("users").document(refereeUid).collection("notifications")
+                .document(notificationId).set(data)
         } catch (e: Exception) {
             e.printStackTrace()
         }
+    }
 
-        fun getRelativeTimestamp(daysOffset: Int, hour: Int): Timestamp {
-            val cal = Calendar.getInstance()
-            cal.add(Calendar.DAY_OF_YEAR, daysOffset)
-            cal.set(Calendar.HOUR_OF_DAY, hour)
-            cal.set(Calendar.MINUTE, 0)
-            cal.set(Calendar.SECOND, 0)
-            cal.set(Calendar.MILLISECOND, 0)
-            return Timestamp(cal.time)
-        }
-
-        val mockMatches = listOf(
-            mapOf(
-                "homeTeamId" to "team_milan",
-                "awayTeamId" to "team_inter",
-                "venueId" to "palestra_centrale",
-                "status" to "pending",
-                "scheduledAt" to getRelativeTimestamp(2, 18),
-                "refereeId" to null,
-                "coRefereeId" to null,
-                "refereeApplications" to emptyList<String>(),
-                "homeScore" to 0,
-                "awayScore" to 0
-            ),
-            mapOf(
-                "homeTeamId" to "team_juve",
-                "awayTeamId" to "team_torino",
-                "venueId" to "palestra_nord",
-                "status" to "pending",
-                "scheduledAt" to getRelativeTimestamp(4, 20),
-                "refereeId" to null,
-                "coRefereeId" to null,
-                "refereeApplications" to emptyList<String>(),
-                "homeScore" to 0,
-                "awayScore" to 0
-            ),
-
-            mapOf(
-                "homeTeamId" to "team_roma",
-                "awayTeamId" to "team_lazio",
-                "venueId" to "palestra_sud",
-                "status" to "assigned",
-                "scheduledAt" to getRelativeTimestamp(1, 19),
-                "refereeId" to "ID_DI_UN_ARBITRO_ESISTENTE",
-                "coRefereeId" to null,
-                "refereeApplications" to emptyList<String>(),
-                "homeScore" to 0,
-                "awayScore" to 0
-            ),
-
-            mapOf(
-                "homeTeamId" to "team_napoli",
-                "awayTeamId" to "team_fiorentina",
-                "venueId" to "palestra_est",
-                "status" to "finished",
-                "scheduledAt" to getRelativeTimestamp(-3, 15),
-                "refereeId" to "ID_DI_UN_ARBITRO_ESISTENTE",
-                "coRefereeId" to null,
-                "refereeApplications" to emptyList<String>(),
-                "homeScore" to 3,
-                "awayScore" to 1
-            )
+    /** Fire-and-forget come nell'originale: nessun `.await()`, il chiamante non attende la scrittura. */
+    fun createVenue(name: String, university: String, address: String, latitude: Double, longitude: Double): Venue {
+        val newId = db.collection("venues").document().id
+        val venue = Venue(
+            id = newId,
+            name = name,
+            university = university,
+            address = address,
+            latitude = latitude,
+            longitude = longitude
         )
-
-        for (matchData in mockMatches) {
-            matchesRef.add(matchData).await()
-        }
+        db.collection("venues").document(newId).set(venue)
+        return venue
     }
 }

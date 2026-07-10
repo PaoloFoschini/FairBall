@@ -26,7 +26,6 @@ import com.example.fairball.model.Team
 import com.example.fairball.model.User
 import com.example.fairball.model.Venue
 import kotlinx.coroutines.launch
-import com.example.fairball.model.NotificationType
 
 /**
  * Scheda di sezione con titolo e icona.
@@ -56,7 +55,7 @@ fun MyMatchCard(match: Match, teamsMap: Map<String, String>, onVai: () -> Unit, 
                     Text(it.toFormattedTime(), style = MaterialTheme.typography.labelMedium, color = Color.Gray)
                 }
             }
-            Text("${teamsMap[match.homeTeamId] ?: match.homeTeamId} vs ${teamsMap[match.awayTeamId] ?: match.awayTeamId}", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Text("${teamsMap.nameOf(match.homeTeamId)} vs ${teamsMap.nameOf(match.awayTeamId)}", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
             HorizontalDivider()
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Button(onClick = onVai, modifier = Modifier.weight(1f)) { Text("VAI") }
@@ -80,7 +79,7 @@ fun AvailableMatchCard(match: Match, teamsMap: Map<String, String>, onPrenotati:
                 }
             }
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                Text("${teamsMap[match.homeTeamId] ?: match.homeTeamId} vs ${teamsMap[match.awayTeamId] ?: match.awayTeamId}", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                Text("${teamsMap.nameOf(match.homeTeamId)} vs ${teamsMap.nameOf(match.awayTeamId)}", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
                 Button(onClick = onPrenotati) { Text("PRENOTATI") }
             }
         }
@@ -93,8 +92,8 @@ fun AvailableMatchCard(match: Match, teamsMap: Map<String, String>, onPrenotati:
 @Composable
 fun MatchApplicationCard(match: Match, referees: List<User>, teams: List<Team>, venues: List<Venue>) {
     val scope = rememberCoroutineScope()
-    val homeTeamName = teams.find { it.id == match.homeTeamId }?.name ?: match.homeTeamId
-    val awayTeamName = teams.find { it.id == match.awayTeamId }?.name ?: match.awayTeamId
+    val homeTeamName = teams.nameOf(match.homeTeamId)
+    val awayTeamName = teams.nameOf(match.awayTeamId)
     val venueName = venues.find { it.id == match.venueId }?.name ?: "Sede non specificata"
 
     Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
@@ -122,27 +121,11 @@ fun MatchApplicationCard(match: Match, referees: List<User>, teams: List<Team>, 
                         onClick = {
                             scope.launch {
                                 FirestoreRepository.assignReferee(match.id, uid, isCoReferee = false)
-
-                                val notificationId = java.util.UUID.randomUUID().toString()
-                                val dataNotifica = mapOf(
-                                    "id" to notificationId,
-                                    "title" to "Gara Assegnata!",
-                                    "message" to "Sei stato ufficialmente assegnato per arbitrare la partita: $homeTeamName vs $awayTeamName.",
-                                    "type" to NotificationType.ASSIGNED,
-                                    "relatedMatchId" to match.id,
-                                    "read" to false
+                                FirestoreRepository.writeLegacyAssignedSubcollectionNotification(
+                                    refereeUid = uid,
+                                    matchId = match.id,
+                                    message = "Sei stato ufficialmente assegnato per arbitrare la partita: $homeTeamName vs $awayTeamName."
                                 )
-
-                                try {
-                                    com.google.firebase.firestore.FirebaseFirestore.getInstance()
-                                        .collection("users")
-                                        .document(uid)
-                                        .collection("notifications")
-                                        .document(notificationId)
-                                        .set(dataNotifica)
-                                } catch (e: Exception) {
-                                    e.printStackTrace()
-                                }
                             }
                         },
                         contentPadding = PaddingValues(horizontal = 8.dp),
@@ -171,8 +154,8 @@ fun MatchApprovalCard(match: Match, referees: List<User>, teams: List<Team>) {
         Column(modifier = Modifier.padding(16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(modifier = Modifier.weight(1f)) {
-                    val homeName = teams.find { it.id == match.homeTeamId }?.name ?: match.homeTeamId
-                    val awayName = teams.find { it.id == match.awayTeamId }?.name ?: match.awayTeamId
+                    val homeName = teams.nameOf(match.homeTeamId)
+                    val awayName = teams.nameOf(match.awayTeamId)
                     Text("$homeName ${match.homeScore} - ${match.awayScore} $awayName", fontWeight = FontWeight.Bold)
                     Text("Arbitro: ${referees.find { it.uid == match.refereeId }?.displayName ?: "Sconosciuto"}", style = MaterialTheme.typography.bodySmall)
                 }
@@ -277,8 +260,8 @@ fun HomeMatchAdminCard(match: Match, referees: List<User>, teams: List<Team>, ve
     var showAssignDialog by remember { mutableStateOf(false) }
     var isAssigningCoReferee by remember { mutableStateOf(false) }
 
-    val homeName = teams.find { it.id == match.homeTeamId }?.name ?: match.homeTeamId
-    val awayName = teams.find { it.id == match.awayTeamId }?.name ?: match.awayTeamId
+    val homeName = teams.nameOf(match.homeTeamId)
+    val awayName = teams.nameOf(match.awayTeamId)
     val refName = referees.find { it.uid == match.refereeId }?.displayName ?: "—"
     val coRefName = referees.find { it.uid == match.coRefereeId }?.displayName
     val venueName = venues.find { it.id == match.venueId }?.name ?: "Sede non specificata"

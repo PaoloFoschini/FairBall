@@ -13,7 +13,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -30,6 +29,9 @@ import coil.compose.AsyncImage
 import com.example.fairball.data.FirestoreRepository
 import com.example.fairball.data.ThemePreference
 import com.example.fairball.model.Match
+import com.example.fairball.model.MatchStatus
+import com.example.fairball.model.UserRole
+import com.example.fairball.model.statusEnum
 import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.launch
 
@@ -68,7 +70,7 @@ fun ProfileScreen(
         if (allUsers == null || allMatches == null || allTeams == null) return@LaunchedEffect
         user = allUsers!!.find { it.uid == targetUid }
         matches = allMatches!!.filter { match ->
-            (match.refereeId == targetUid || match.coRefereeId == targetUid) && match.status == "finished"
+            (match.refereeId == targetUid || match.coRefereeId == targetUid) && match.statusEnum == MatchStatus.FINISHED
         }
         teams = allTeams!!.associate { it.id to it.name }
         isLoading = false
@@ -85,24 +87,20 @@ fun ProfileScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text(if (isMyProfile) "Il Tuo Profilo" else user?.displayName ?: "Profilo Arbitro") },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Indietro")
-                    }
-                }
+            BackTopBar(
+                title = if (isMyProfile) "Il Tuo Profilo" else user?.displayName ?: "Profilo Arbitro",
+                onBack = onBack
             )
         }
     ) { padding ->
         if (isLoading) {
-            Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator()
-            }
+            LoadingBox(modifier = Modifier.fillMaxSize().padding(padding))
         } else if (user == null) {
-            Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
-                Text("Utente non trovato")
-            }
+            EmptyStateBox(
+                "Utente non trovato",
+                modifier = Modifier.fillMaxSize().padding(padding),
+                textColor = Color.Unspecified
+            )
         } else {
             val listState = rememberLazyListState()
             val userRole = user?.role ?: ""
@@ -122,7 +120,7 @@ fun ProfileScreen(
                     )
                 }
 
-                if (userRole != "admin") {
+                if (UserRole.fromRaw(userRole) != UserRole.ADMIN) {
                     val stats = calculateRefereeStats(user!!, matches)
                     item {
                         Text("Badge e Traguardi", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
@@ -242,28 +240,20 @@ fun ProfileScreen(
     }
 
     if (showDeleteConfirm) {
-        AlertDialog(
-            onDismissRequest = { showDeleteConfirm = false },
-            title = { Text("Elimina Account") },
-            text = { Text("Sei sicuro di voler eliminare definitivamente il tuo account? Questa azione è irreversibile e rimuoverà tutti i tuoi dati da FairBall.") },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        scope.launch {
-                            FirestoreRepository.deleteUser(targetUid)
-                            auth.currentUser?.delete()
-                            showDeleteConfirm = false
-                            Session.clear()
-                            onLogoutSuccess()
-                        }
-                    }
-                ) {
-                    Text("ELIMINA", color = Color.Red, fontWeight = FontWeight.Bold)
+        ConfirmDeleteDialog(
+            title = "Elimina Account",
+            message = "Sei sicuro di voler eliminare definitivamente il tuo account? Questa azione è irreversibile e rimuoverà tutti i tuoi dati da FairBall.",
+            confirmBold = true,
+            onConfirm = {
+                scope.launch {
+                    FirestoreRepository.deleteUser(targetUid)
+                    auth.currentUser?.delete()
+                    showDeleteConfirm = false
+                    Session.clear()
+                    onLogoutSuccess()
                 }
             },
-            dismissButton = {
-                TextButton(onClick = { showDeleteConfirm = false }) { Text("ANNULLA") }
-            }
+            onDismiss = { showDeleteConfirm = false }
         )
     }
 }
@@ -394,12 +384,12 @@ fun MatchHistoryItem(match: Match, teams: Map<String, String>, onClick: () -> Un
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        "${teams[match.homeTeamId] ?: match.homeTeamId} vs ${teams[match.awayTeamId] ?: match.awayTeamId}",
+                        "${teams.nameOf(match.homeTeamId)} vs ${teams.nameOf(match.awayTeamId)}",
                         fontWeight = FontWeight.Bold
                     )
                     Text("Categoria: " + match.category, style = MaterialTheme.typography.bodySmall)
                 }
-                if (match.status == "finished") {
+                if (match.statusEnum == MatchStatus.FINISHED) {
                     Text(
                         "${match.homeScore} - ${match.awayScore}",
                         fontWeight = FontWeight.ExtraBold,
@@ -408,7 +398,7 @@ fun MatchHistoryItem(match: Match, teams: Map<String, String>, onClick: () -> Un
                     )
                 }
             }
-            if (match.status == "finished") {
+            if (match.statusEnum == MatchStatus.FINISHED) {
                 Spacer(Modifier.height(8.dp))
             }
         }
