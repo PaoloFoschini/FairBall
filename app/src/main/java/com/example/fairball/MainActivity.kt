@@ -16,7 +16,7 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.example.fairball.data.DataStoreManager
 import com.example.fairball.data.ThemePreference
-// import com.example.fairball.data.FirebaseDataSeeder
+import com.example.fairball.data.FirebaseDataSeeder
 import com.example.fairball.ui.*
 import com.example.fairball.ui.theme.FairBallTheme
 import com.google.firebase.FirebaseApp
@@ -81,7 +81,7 @@ class MainActivity : FragmentActivity() {
 
         try {
             FirebaseApp.initializeApp(this)
-            // FirebaseDataSeeder.seedData()
+            FirebaseDataSeeder.seedData()
         } catch (e: Exception) {
             e.printStackTrace()
         }

@@ -20,22 +20,30 @@ import java.util.Calendar
  *  - copre ogni stato di partita (pending con candidature, assigned, waiting_approval,
  *    finished, rejected) così ogni schermata dell'app ha qualcosa di significativo da mostrare;
  *  - pre-popola anche le notifiche, così il badge "non lette" e il centro notifiche
- *    non sono vuoti al primo avvio della demo.
+ *    non sono vuoti al primo avvio della demo;
+ *  - include account reali aggiuntivi (2 amministratori + 2 arbitri) con partite già
+ *    arbitrate e notifiche correlate, per test multi-utente oltre alla demo.
  *
  * COME USARLO
- *  1. Crea in Firebase Authentication un utente di test con email/password a piacere.
- *  2. Copia il suo UID e sostituiscilo qui sotto in DEMO_REFEREE_UID.
+ *  1. Crea in Firebase Authentication un utente di test con email/password a piacere
+ *     per ciascuno degli UID elencati sotto (DEMO_REFEREE_UID + i nuovi account reali).
+ *  2. Copia gli UID reali e sostituiscili nelle costanti sotto (o negli id dei documenti
+ *     "users", che devono coincidere con l'UID Firebase Auth).
  *  3. Chiama DemoDataSeeder.seedPresentationData() una volta (es. da un bottone di debug
  *     o da Application.onCreate in build debug). Di default CANCELLA e ricrea tutto,
  *     quindi è ripetibile ad ogni prova della presentazione.
- *  4. Fai login con quell'utente per mostrare la demo dal punto di vista arbitro.
+ *  4. Fai login con l'utente desiderato per mostrare la demo dal relativo punto di vista.
  */
 object FirebaseDataSeeder {
 
     private val db = FirebaseFirestore.getInstance()
 
-    // TODO: sostituisci con l'UID reale dell'account demo creato in Firebase Authentication.
     private const val DEMO_REFEREE_UID = "demo_arbitro_presentazione"
+
+    private const val ADMIN_PAOLO_UID = "5TgfuRpKrweOzCgco9RPrD2hKMd2"    // paolofoschini04@gmail.com
+    private const val ADMIN_DYNAMO_UID = "ZgsKN7utHPOpC76XHOlNDi1nbY52"  // dynamo.grizzly@gmail.com
+    private const val REF_POL_UID = "VwSFtWVbqsP6V5rg5pDNND8XFjy2"       // pol.foschini@gmail.com
+    private const val REF_VALERII_UID = "DHPllkiADaMBMz3Cb2QKUR5SCt83"  // valerii.sargov@gmail.com
 
     // Calendar "base" congelato all'inizio di ogni seedPresentationData(), da cui [ts] deriva
     // tutti i timestamp relativi del run corrente.
@@ -99,6 +107,7 @@ object FirebaseDataSeeder {
 
     // ---------------------------------------------------------------
     // 1. UTENTI: admin, arbitro demo (per il login) + roster di arbitri
+    //    + account reali aggiuntivi (2 admin, 2 arbitri)
     // ---------------------------------------------------------------
     private suspend fun seedUsers() {
         val users = mapOf(
@@ -114,6 +123,21 @@ object FirebaseDataSeeder {
                 "role" to "admin",
                 "photoUrl" to null
             ),
+
+            // --- Nuovi account amministratori reali ---
+            ADMIN_PAOLO_UID to mapOf(
+                "displayName" to "Paolo Foschini",
+                "email" to "paolofoschini04@gmail.com",
+                "role" to "admin",
+                "photoUrl" to null
+            ),
+            ADMIN_DYNAMO_UID to mapOf(
+                "displayName" to "Dynamo Grizzly",
+                "email" to "dynamo.grizzly@gmail.com",
+                "role" to "admin",
+                "photoUrl" to null
+            ),
+
             DEMO_REFEREE_UID to mapOf(
                 "displayName" to "Arbitro Demo",
                 "email" to "demo.arbitro@fairball.com",
@@ -126,7 +150,21 @@ object FirebaseDataSeeder {
             "ref_04" to mapOf("displayName" to "Davide Longo", "email" to "davide.longo@fairball.com", "role" to "referee", "photoUrl" to null),
             "ref_05" to mapOf("displayName" to "Sara Conti", "email" to "sara.conti@fairball.com", "role" to "referee", "photoUrl" to null),
             "ref_06" to mapOf("displayName" to "Elena Moretti", "email" to "elena.moretti@fairball.com", "role" to "referee", "photoUrl" to null),
-            "ref_07" to mapOf("displayName" to "Paolo Serra", "email" to "paolo.serra@fairball.com", "role" to "referee", "photoUrl" to null)
+            "ref_07" to mapOf("displayName" to "Paolo Serra", "email" to "paolo.serra@fairball.com", "role" to "referee", "photoUrl" to null),
+
+            // --- Nuovi account arbitri reali ---
+            REF_POL_UID to mapOf(
+                "displayName" to "Pol Foschini",
+                "email" to "pol.foschini@gmail.com",
+                "role" to "referee",
+                "photoUrl" to null
+            ),
+            REF_VALERII_UID to mapOf(
+                "displayName" to "Valerii Sargov",
+                "email" to "valerii.sargov@gmail.com",
+                "role" to "referee",
+                "photoUrl" to null
+            )
         )
         for ((id, data) in users) {
             db.collection("users").document(id).set(data).await()
@@ -171,6 +209,7 @@ object FirebaseDataSeeder {
 
     // ---------------------------------------------------------------
     // 4. PARTITE: una per ogni stato/flusso rilevante dell'app
+    //    + partite già arbitrate dai 2 nuovi arbitri reali
     // ---------------------------------------------------------------
     private suspend fun seedMatches() {
         val matches = linkedMapOf(
@@ -330,6 +369,83 @@ object FirebaseDataSeeder {
                 "refereeId" to null, "coRefereeId" to null,
                 "refereeApplications" to emptyList<String>(),
                 "homeScore" to 0, "awayScore" to 0
+            ),
+
+            // =========================================================
+            // Partite dedicate ai nuovi arbitri reali (Pol Foschini e
+            // Valerii Sargov): storico "finished" + una in corso di
+            // approvazione + una assegnata, così i loro profili non
+            // sono vuoti al primo login.
+            // =========================================================
+
+            // --- FINISHED: Pol Foschini arbitro, Valerii Sargov co-arbitro ---
+            "match_15" to mapOf(
+                "code" to "DB-ITA-401", "phase" to "Regular Season", "category" to "Maschile",
+                "homeTeamId" to "team_01", "awayTeamId" to "team_02", "venueId" to "venue_01",
+                "status" to "finished", "scheduledAt" to ts(-12, 18),
+                "refereeId" to REF_POL_UID, "coRefereeId" to REF_VALERII_UID,
+                "refereeApplications" to emptyList<String>(),
+                "homeScore" to 13, "awayScore" to 9,
+                "assignedAt" to ts(-18, 11)
+            ),
+
+            // --- FINISHED: Valerii Sargov arbitro, Pol Foschini co-arbitro ---
+            "match_16" to mapOf(
+                "code" to "DB-ITA-402", "phase" to "Regular Season", "category" to "Misto",
+                "homeTeamId" to "team_05", "awayTeamId" to "team_06", "venueId" to "venue_06",
+                "status" to "finished", "scheduledAt" to ts(-11, 20),
+                "refereeId" to REF_VALERII_UID, "coRefereeId" to REF_POL_UID,
+                "refereeApplications" to emptyList<String>(),
+                "homeScore" to 16, "awayScore" to 14,
+                "assignedAt" to ts(-17, 10)
+            ),
+
+            // --- FINISHED: Pol Foschini da solo (senza co-arbitro) ---
+            "match_17" to mapOf(
+                "code" to "DB-ITA-403", "phase" to "Regular Season", "category" to "Femminile",
+                "homeTeamId" to "team_07", "awayTeamId" to "team_08", "venueId" to "venue_05",
+                "status" to "finished", "scheduledAt" to ts(-6, 17),
+                "refereeId" to REF_POL_UID, "coRefereeId" to null,
+                "refereeApplications" to emptyList<String>(),
+                "homeScore" to 17, "awayScore" to 15,
+                "assignedAt" to ts(-11, 9)
+            ),
+
+            // --- FINISHED: Valerii Sargov da solo (senza co-arbitro) ---
+            "match_18" to mapOf(
+                "code" to "DB-ITA-404", "phase" to "Regular Season", "category" to "Maschile",
+                "homeTeamId" to "team_03", "awayTeamId" to "team_04", "venueId" to "venue_03",
+                "status" to "finished", "scheduledAt" to ts(-3, 19),
+                "refereeId" to REF_VALERII_UID, "coRefereeId" to null,
+                "refereeApplications" to emptyList<String>(),
+                "homeScore" to 7, "awayScore" to 19,
+                "assignedAt" to ts(-8, 9)
+            ),
+
+            // --- WAITING_APPROVAL: Pol Foschini in attesa di approvazione admin ---
+            "match_19" to mapOf(
+                "code" to "DB-ITA-405", "phase" to "Semifinale", "category" to "Maschile",
+                "homeTeamId" to "team_02", "awayTeamId" to "team_05", "venueId" to "venue_02",
+                "status" to "waiting_approval", "scheduledAt" to ts(-1, 20),
+                "refereeId" to REF_POL_UID, "coRefereeId" to REF_VALERII_UID,
+                "refereeApplications" to emptyList<String>(),
+                "homeScore" to 12, "awayScore" to 15,
+                "assignedAt" to ts(-6, 9),
+                "photoDistintaA" to "https://placehold.co/600x800?text=Distinta+A",
+                "photoDistintaB" to "https://placehold.co/600x800?text=Distinta+B",
+                "photoReferto" to "https://placehold.co/600x800?text=Referto",
+                "adminComment" to null
+            ),
+
+            // --- ASSIGNED: Valerii Sargov, prossima partita in calendario ---
+            "match_20" to mapOf(
+                "code" to "DB-ITA-406", "phase" to "Regular Season", "category" to "Misto",
+                "homeTeamId" to "team_06", "awayTeamId" to "team_08", "venueId" to "venue_06",
+                "status" to "assigned", "scheduledAt" to ts(4, 18),
+                "refereeId" to REF_VALERII_UID, "coRefereeId" to REF_POL_UID,
+                "refereeApplications" to emptyList<String>(),
+                "homeScore" to 0, "awayScore" to 0,
+                "assignedAt" to ts(-1, 10)
             )
         )
 
@@ -340,7 +456,8 @@ object FirebaseDataSeeder {
 
     // ---------------------------------------------------------------
     // 5. NOTIFICHE: pre-popolate così il centro notifiche non è vuoto
-    //    all'apertura della demo (sia lato arbitro demo che lato admin).
+    //    all'apertura della demo (sia lato arbitro demo che lato admin,
+    //    sia lato nuovi account reali).
     // ---------------------------------------------------------------
     private suspend fun seedNotifications() {
         val notifications = listOf(
@@ -397,6 +514,82 @@ object FirebaseDataSeeder {
                 "relatedMatchId" to "match_07",
                 "read" to false,
                 "createdAt" to ts(-4, 20)
+            ),
+
+            // --- Notifiche per i nuovi arbitri reali ---
+            mapOf(
+                "recipientUid" to REF_POL_UID,
+                "type" to "result_published",
+                "title" to "Risultato pubblicato",
+                "message" to "Il referto di Torino Vipers vs Milano Fireballs è stato approvato ed è ora visibile nella pagina del campionato.",
+                "relatedMatchId" to "match_15",
+                "read" to true,
+                "createdAt" to ts(-11, 12)
+            ),
+            mapOf(
+                "recipientUid" to REF_POL_UID,
+                "type" to "assigned",
+                "title" to "Sei stato assegnato a una partita",
+                "message" to "Sei stato assegnato come arbitro per Milano Fireballs vs Roma Gladiators Dodgeball.",
+                "relatedMatchId" to "match_19",
+                "read" to false,
+                "createdAt" to ts(-6, 9, 5)
+            ),
+            mapOf(
+                "recipientUid" to REF_VALERII_UID,
+                "type" to "result_published",
+                "title" to "Risultato pubblicato",
+                "message" to "Il referto di Roma Gladiators Dodgeball vs Vesuvio Kraken è stato approvato ed è ora visibile nella pagina del campionato.",
+                "relatedMatchId" to "match_16",
+                "read" to true,
+                "createdAt" to ts(-10, 13)
+            ),
+            mapOf(
+                "recipientUid" to REF_VALERII_UID,
+                "type" to "assigned",
+                "title" to "Sei stato assegnato a una partita",
+                "message" to "Sei stato assegnato come arbitro per Vesuvio Kraken vs Palermo Falchi.",
+                "relatedMatchId" to "match_20",
+                "read" to false,
+                "createdAt" to ts(-1, 10, 5)
+            ),
+
+            // --- Notifiche per i nuovi amministratori reali ---
+            mapOf(
+                "recipientUid" to ADMIN_PAOLO_UID,
+                "type" to "approval_request",
+                "title" to "Referto da verificare",
+                "message" to "Pol Foschini ha inviato risultato e documenti da approvare per Milano Fireballs vs Roma Gladiators Dodgeball.",
+                "relatedMatchId" to "match_19",
+                "read" to false,
+                "createdAt" to ts(-1, 20, 15)
+            ),
+            mapOf(
+                "recipientUid" to ADMIN_PAOLO_UID,
+                "type" to "referee_request",
+                "title" to "Nuova richiesta di arbitraggio",
+                "message" to "Arbitro Demo si è candidato per arbitrare Torino Vipers vs Milano Fireballs.",
+                "relatedMatchId" to "match_01",
+                "read" to false,
+                "createdAt" to ts(-1, 9, 20)
+            ),
+            mapOf(
+                "recipientUid" to ADMIN_DYNAMO_UID,
+                "type" to "approval_request",
+                "title" to "Referto da verificare",
+                "message" to "Un arbitro ha inviato risultato e documenti da approvare per Bologna Ball Busters vs Toscana Titans.",
+                "relatedMatchId" to "match_06",
+                "read" to false,
+                "createdAt" to ts(-2, 20, 30)
+            ),
+            mapOf(
+                "recipientUid" to ADMIN_DYNAMO_UID,
+                "type" to "new_match_published",
+                "title" to "Nuova partita pubblicata",
+                "message" to "La partita Toscana Titans vs Palermo Falchi è stata pubblicata correttamente.",
+                "relatedMatchId" to "match_14",
+                "read" to true,
+                "createdAt" to ts(-2, 11)
             )
         )
 
