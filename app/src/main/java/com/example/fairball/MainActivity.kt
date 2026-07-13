@@ -79,12 +79,12 @@ class MainActivity : FragmentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        try {
+        /**try {
             FirebaseApp.initializeApp(this)
             FirebaseDataSeeder.seedData()
         } catch (e: Exception) {
             e.printStackTrace()
-        }
+        }*/
 
         enableEdgeToEdge()
         val dataStoreManager = DataStoreManager(this)
