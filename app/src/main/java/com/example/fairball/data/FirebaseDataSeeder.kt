@@ -45,8 +45,6 @@ object FirebaseDataSeeder {
     private const val REF_POL_UID = "VwSFtWVbqsP6V5rg5pDNND8XFjy2"       // pol.foschini@gmail.com
     private const val REF_VALERII_UID = "DHPllkiADaMBMz3Cb2QKUR5SCt83"  // valerii.sargov@gmail.com
 
-    // Calendar "base" congelato all'inizio di ogni seedPresentationData(), da cui [ts] deriva
-    // tutti i timestamp relativi del run corrente.
     private lateinit var cal: Calendar
 
     /**
@@ -88,7 +86,6 @@ object FirebaseDataSeeder {
 
     suspend fun seedPresentationData(clearExisting: Boolean = true) {
         if (clearExisting) {
-            // Ordine: prima le collection "figlie" (dipendono da match/utenti), poi le altre.
             clearCollection("notifications")
             clearCollection("matches")
             clearCollection("teams")
@@ -467,7 +464,7 @@ object FirebaseDataSeeder {
                 "title" to "Nuova partita disponibile",
                 "message" to "Bari Squali vs Palermo Falchi è stata pubblicata: candidati se vuoi arbitrarla.",
                 "relatedMatchId" to "match_02",
-                "read" to false,
+                "read" to true,
                 "createdAt" to ts(-1, 9, 30)
             ),
             mapOf(
@@ -476,7 +473,7 @@ object FirebaseDataSeeder {
                 "title" to "Sei stato assegnato a una partita",
                 "message" to "Sei stato assegnato come arbitro per Bologna Ball Busters vs Toscana Titans.",
                 "relatedMatchId" to "match_03",
-                "read" to false,
+                "read" to true,
                 "createdAt" to ts(-1, 9)
             ),
             mapOf(
@@ -494,7 +491,7 @@ object FirebaseDataSeeder {
                 "title" to "Nuova richiesta di arbitraggio",
                 "message" to "Arbitro Demo si è candidato per arbitrare una partita.",
                 "relatedMatchId" to "match_01",
-                "read" to false,
+                "read" to true,
                 "createdAt" to ts(-1, 9, 15)
             ),
             mapOf(
@@ -503,7 +500,7 @@ object FirebaseDataSeeder {
                 "title" to "Referto da verificare",
                 "message" to "Un arbitro ha inviato risultato e documenti da approvare.",
                 "relatedMatchId" to "match_05",
-                "read" to false,
+                "read" to true,
                 "createdAt" to ts(-1, 18, 30)
             ),
             mapOf(
@@ -512,7 +509,7 @@ object FirebaseDataSeeder {
                 "title" to "Modifiche richieste al referto",
                 "message" to "La foto del referto è sfocata, per favore ricaricala leggibile.",
                 "relatedMatchId" to "match_07",
-                "read" to false,
+                "read" to true,
                 "createdAt" to ts(-4, 20)
             ),
 
@@ -532,7 +529,7 @@ object FirebaseDataSeeder {
                 "title" to "Sei stato assegnato a una partita",
                 "message" to "Sei stato assegnato come arbitro per Milano Fireballs vs Roma Gladiators Dodgeball.",
                 "relatedMatchId" to "match_19",
-                "read" to false,
+                "read" to true,
                 "createdAt" to ts(-6, 9, 5)
             ),
             mapOf(
@@ -550,7 +547,7 @@ object FirebaseDataSeeder {
                 "title" to "Sei stato assegnato a una partita",
                 "message" to "Sei stato assegnato come arbitro per Vesuvio Kraken vs Palermo Falchi.",
                 "relatedMatchId" to "match_20",
-                "read" to false,
+                "read" to true,
                 "createdAt" to ts(-1, 10, 5)
             ),
 
@@ -561,7 +558,7 @@ object FirebaseDataSeeder {
                 "title" to "Referto da verificare",
                 "message" to "Pol Foschini ha inviato risultato e documenti da approvare per Milano Fireballs vs Roma Gladiators Dodgeball.",
                 "relatedMatchId" to "match_19",
-                "read" to false,
+                "read" to true,
                 "createdAt" to ts(-1, 20, 15)
             ),
             mapOf(
@@ -570,7 +567,7 @@ object FirebaseDataSeeder {
                 "title" to "Nuova richiesta di arbitraggio",
                 "message" to "Arbitro Demo si è candidato per arbitrare Torino Vipers vs Milano Fireballs.",
                 "relatedMatchId" to "match_01",
-                "read" to false,
+                "read" to true,
                 "createdAt" to ts(-1, 9, 20)
             ),
             mapOf(
@@ -579,7 +576,7 @@ object FirebaseDataSeeder {
                 "title" to "Referto da verificare",
                 "message" to "Un arbitro ha inviato risultato e documenti da approvare per Bologna Ball Busters vs Toscana Titans.",
                 "relatedMatchId" to "match_06",
-                "read" to false,
+                "read" to true,
                 "createdAt" to ts(-2, 20, 30)
             ),
             mapOf(

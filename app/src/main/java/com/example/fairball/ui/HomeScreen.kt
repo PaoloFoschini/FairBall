@@ -463,7 +463,7 @@ fun ColumnScope.RefereeHomeContent(
 
                             if (match.status == "rejected") {
                                 Button(onClick = { onArbitrateMatch(match.id) }) {
-                                    Text("Modifica")
+                                    Text("MODIFICA")
                                 }
                             } else {
                                 Icon(Icons.Default.Schedule, null, tint = AppColors.PendingApprovalAmber)

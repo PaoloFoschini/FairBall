@@ -47,10 +47,6 @@ object FirestoreRepository {
     fun notificationsFlow(uid: String): Flow<List<Notification>> =
         db.collection("notifications")
             .whereEqualTo("recipientUid", uid)
-            // Nota: niente .orderBy() qui. Un whereEqualTo + orderBy su un campo
-            // diverso richiede un indice composito su Firestore: se l'indice non
-            // esiste la query fallisce silenziosamente e lo schermo resta bloccato
-            // sullo spinner per sempre. Ordiniamo quindi lato client.
             .snapshots()
             .map { snapshot ->
                 snapshot.documents
@@ -295,8 +291,6 @@ object FirestoreRepository {
     suspend fun rejectMatchReport(matchId: String, comment: String) {
         db.collection("matches").document(matchId).update(
             mapOf(
-                // "rejected" non ha un caso MatchStatus corrispondente: confronto/valore
-                // stringa intenzionale, vedi model/MatchStatus.kt.
                 "status" to "rejected",
                 "adminComment" to comment
             )
