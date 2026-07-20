@@ -54,6 +54,7 @@ fun VenueMapView(
         modifier = modifier,
         factory = { ctx ->
             Configuration.getInstance().load(ctx, ctx.getSharedPreferences("osm_pref", Context.MODE_PRIVATE))
+            Configuration.getInstance().userAgentValue ="FairballApp/1.0"
             MapView(ctx).apply {
                 setTileSource(TileSourceFactory.MAPNIK)
                 setMultiTouchControls(true)
